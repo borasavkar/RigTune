@@ -1,0 +1,212 @@
+# Adrenalin Ayar Rehberi
+
+RX 9070 XT için oyun bazlı AMD Adrenalin ayar önerileri veren, tek dosyalık bir HTML uygulaması. Kullanıcı bir oyun ve monitör ayarı seçer; uygulama Adrenalin'deki oyun profilinde hangi ayarın açılıp kapanacağını gerekçesiyle gösterir.
+
+- Başlangıç: 14 Ekim 2026, claude.ai sohbeti. Konuşma geçmişi: `docs/sohbet-gecmisi.md`
+- Yayındaki sürüm: https://claude.ai/artifact/9TzEFResiNzrbn3sQFyi5T (özel, sürüm 2, 16 Ekim 2026)
+
+## Kullanıcı ve çalışma kuralları
+
+- Kullanıcı: Bora. Arayüz ve açıklamalar Türkçe olacak; anlatım bozukluğu olmayan, sade bir Türkçe kullanılacak.
+- Cevaplar kısa, net ve tarafsız olacak. Kullanıcı hatalıysa veya daha iyi bir yol varsa bu açıkça söylenecek.
+- Kod hatasız olacak ve mevcut koddan devam edilecek; sıfırdan yeniden yazılmayacak.
+
+## Sistem
+
+- İşlemci: Ryzen 5 9600X. Anakart: MSI X670E. Güç kaynağı: Enermax Revolution III 1000W.
+- Ekran kartı: Gigabyte RX 9070 XT Gaming OC, 16 GB (RDNA 4). Kullanıcının ilk AMD kartı.
+- İşletim sistemi: Windows 11. Bilgisayar adı: `9600x`.
+- Ana monitör (17 Ekim 2026'da EDID'den okundu): AOC CU34G2XP, 34", 3440×1440, DisplayPort, en fazla 180 Hz, FreeSync 2.1 aralığı 48–180 Hz, HDR10 (tepe yaklaşık 418 nit, HDR400 sınıfı), 10 bit. Windows'ta 144 Hz'de çalışıyordu ve HDR açıktı.
+- İkinci monitör: ASUS VW193D, 1440×900, 60 Hz, DVI.
+- Bellek: 2 × 16 GB DDR5, 6000 MT/s (EXPO açık).
+- AMD Software 26.10.1 (22 Ekim 2026'da güncellendi; önceki 26.8.1). Sürücü 32.0.32015.7029, sürücü tarihi 2026-10-18, iç sürüm 26.20.15.07.
+- Tek dosyalık sayfa (index.html) başlangıçta örnek olarak 1440p / 165 Hz / FreeSync açık gösterir; masaüstü uygulaması monitörü kendisi okur.
+
+## Dosyalar
+
+| Dosya | Görevi |
+|---|---|
+| `index.html` | Tarayıcıda doğrudan açılabilen bağımsız sürüm (doctype ve head eklenmiş). Yerel geliştirme bu dosyada yapılır. |
+| `adrenalin-ayar.artifact.html` | claude.ai'ye yayınlanan dosyanın birebir kopyası. Bu biçimde `<html>`, `<head>` ve `<body>` etiketi yoktur; yayın sırasında platform ekler. |
+| `docs/sohbet-gecmisi.md` | claude.ai'deki konuşmanın özeti ve kararlar. |
+
+İki HTML dosyasının gövdesi aynıdır. `index.html`'de yapılan değişiklik claude.ai'deki sürüme aktarılacaksa, değişiklik `adrenalin-ayar.artifact.html`'ye de uygulanmalı ve o dosya yeniden yayınlanmalı. Head kısmına ek olarak `body{margin:0}` ve `[hidden]{display:none!important}` kuralları kondu; claude.ai bunları kendisi ekliyor, yerelde ise gerekli. Gerekli olmalarının sebebi: `.row2` sınıfının `display:flex` kuralı `hidden` özniteliğini ezer.
+
+## Kod yapısı
+
+Bütün kod tek bir `<script>` bloğunda, kütüphane kullanılmıyor.
+
+### Oyun verisi (`G` dizisi)
+
+Her oyun bir nesne:
+
+| Alan | Anlamı |
+|---|---|
+| `n` | Oyunun adı. Benzersiz olmalı; liste seçimi ada göre yapılır. |
+| `t` | Tür: `rek` rekabetçi online, `koop` online ko-op, `aks` tek oyunculu aksiyon/RPG, `yar` yarış/spor/simülasyon, `haf` hafif/strateji |
+| `y` | 1440p yüksek ayarda GPU yükü: 1 hafif, 2 orta, 3 ağır, 4 çok ağır/ışın izleme |
+| `f` | FSR desteği: `fsr4`, `fsr31` (Adrenalin FSR 4'e yükseltebilir), `fsr31n` (FSR 3.1 ama AMD'nin FSR 4 listesinde değil), `fsr3`, `fsr2`, `fsr1`, `yok` |
+| `fg` | Oyun içi FSR kare üretimi var (1) |
+| `al` | Anti-Lag 2 destekli (1) |
+| `c60` | Motor 60 FPS ile kilitli (1) |
+| `ac` | Anti-cheat adı |
+| `no` | Oyuna özel not (Türkçe) |
+| `s` | Steam'de yüklüyse disk harfi (`"C:"` gibi) |
+| `sx` | Steam'de kayıtlı ama diske erişilemiyor (1) |
+| `lp` | Steam'de son oynama zamanı (Unix saniyesi); Steam grubunu sıralar |
+
+Kullanıcının elle eklediği veya Claude'a sorarak eklediği oyunlar `localStorage`'da `ek` anahtarıyla tutulur (`src: "elle"` ya da `src: "claude"`).
+
+### Öneri motoru (`rec(g)`)
+
+- `lvl(g)`: Çözünürlüğe göre yükü kaydırır (1080p −1, UW +0,5, 4K +1) ve 0–3 arası bir seviye üretir.
+- `need`: Seviye 2 veya üstüyse, ya da 4K'da seviye 1 olup oyun rekabetçi değilse ölçekleyici gerekir.
+- Ölçekleme sırası: FSR 4 yerleşik → FSR 3.1 + Adrenalin FSR 4 yükseltmesi → eski FSR (Kalite modu) → modern ölçekleyici yoksa RSR. Rekabetçi oyunlarda native.
+- AFMF şu durumda açık önerilir: rekabetçi değil, oyunun kendi kare üretimi yok, temel FPS 60 üstü ve monitör 120 Hz veya üstü. Oyun 60 FPS'e kilitliyse her durumda açık önerilir.
+- FPS sınırı: yenileme hızı − 3. AFMF açıkken (yenileme hızı − 3) / 2, bu sınır Radeon Chill'de min = max olarak girilir. Rekabetçi oyunlarda sınır yok.
+- Radeon Image Sharpening, FSR açıkken kapalı önerilir (FSR'nin kendi keskinleştirmesiyle üst üste biner).
+- Genel ayarlar (`GL` dizisi): FreeSync, SAM, HYPR-RX kapalı, sürücü seviyesinde AA kapalı, sürücü 26.9.2 veya üstü.
+
+### Claude'a sor
+
+claude.ai'deki sürüm `sample` yeteneğini kullanır: `await window.claude.use("sample")` çağrılır, oyun özellikleri `sample.json()` ile JSON olarak istenir ve sonuç 24 saat önbellekte tutulur. Yerelde `window.claude` olmadığı için bu bölüm kendini gizler, yerine elle giriş formu açılır.
+
+### Tasarım
+
+- Renkler `:root` üzerinde token olarak tanımlı. Koyu tema iki blokta: `prefers-color-scheme` ve `[data-theme="dark"]`.
+- Yazı tipleri: Barlow Condensed (başlık), IBM Plex Sans (metin), IBM Plex Mono (değerler).
+- Durum etiketleri: `on` yeşil, `off` gri, `set` mavi, `warn` turuncu. Vurgu rengi Radeon kırmızısı.
+
+## Steam kütüphanesi (16 Ekim 2026'da okundu)
+
+Kütüphane klasörleri (`C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf`):
+
+- `C:\Program Files (x86)\Steam`
+- `D:\SteamLibrary`
+- `G:\SteamLibrary` (boş)
+- `H:\SteamLibrary` (o gün erişilemedi; sürücü takılı değil gibi görünüyordu)
+
+Yüklü oyunlar (`appmanifest_*.acf` dosyalarından):
+
+| AppID | Oyun | Disk | Son oynama |
+|---|---|---|---|
+| 292030 | The Witcher 3: Wild Hunt — Remastered | C: | 2026-10-15 |
+| 1174180 | Red Dead Redemption 2 | C: | 2026-10-09 |
+| 3472040 | NBA 2K26 | C: | 2026-09-25 |
+| 933110 | Age of Empires III: Definitive Edition | D: | 2026-09-12 |
+| 1297900 | Gothic 1 Remake | C: | 2026-08-21 |
+| 261550 | Mount & Blade II: Bannerlord | C: | 2026-01-07 |
+| 3041230 | Windrose | H: | bilinmiyor |
+
+Manifest dosyası olmayan oyun klasörleri de var; bunlar büyük ihtimalle kaldırılmış oyunlardan kalanlar: `C:\...\steamapps\common` altında ENDLESS Legend 2, Sid Meier's Civilization V ve Windrose; `G:\SteamLibrary\steamapps\common` altında LoveCraft.
+
+Steam dışı oyun klasörleri (henüz eklenmedi): `G:\Ubisoft`, `G:\XboxGames`, `G:\The Great Circle`.
+
+## Araştırma bulguları ve kaynaklar
+
+- **Witcher 3 Remastered (29 Eylül 2026):** FSR 4, FSR kare üretimi, Anti-Lag 2 ve path tracing var. https://witcher3remastered.com/guides/pc-settings/ · https://www.driverscloud.com/en/news/2959/the-witcher-3-gets-an-xxl-remaster-path-tracing-dlss-45-and-fsr-4-on-the-menu
+- **Gothic 1 Remake:** Unreal Engine 5. AMD'nin listesinde FSR 3 olarak görünüyor; kullanıcılar FSR 3.1.4 olduğunu bildiriyor. Kullanıcılar FSR 4'ü OptiScaler ile ekliyor, bu da Adrenalin'in FSR 4 yükseltmesinin bu oyunda çalışmadığını düşündürüyor. Haziran yamasından sonra kare üretiminde sorun bildirildi. https://steamcommunity.com/app/1297900/discussions/2/564785190210398668/
+- **NBA 2K26:** AMD listesinde FSR 3; hafif bir oyun.
+- **AoE III DE:** FSR 1.
+- **Bannerlord:** FSR yok, DirectX 11, işlemci sınırlı. https://checkfps.io/en/optimize-fps/mount-and-blade-ii-bannerlord
+- **Windrose:** AMD listesinde FSR 4 (Redstone), FSR 3 ve kare üretimi var.
+- AMD'nin oyun listesi: https://www.amd.com/en/products/graphics/technologies/fidelityfx/supported-games.html
+- **Sürücüler:** 26.8.1'de RX 9070 XT'de Apex Legends çöküyordu, 26.9.1'de düzeltildi; 26.9.1 Starfield çökmelerini de düzeltti. 26.9.2 (isteğe bağlı WHQL) Witcher 3 Remastered desteğini getirdi.
+- **İsim değişikliği:** Anti-Lag 2'nin adı "FSR Latency Reduction 2" oluyor.
+
+Not: Oyunların özellik tabloları kural tabanlı tahmindir, ölçüm değildir. Yeni oyunların FSR bilgisi oyun güncellemeleriyle değişebilir.
+
+## Masaüstü uygulaması: RigTune (`desktop/`)
+
+17 Ekim 2026'da "Oyun Ayar Rehberi" adıyla başlandı; 22 Ekim 2026'da Bora'nın seçimiyle adı **RigTune** oldu (iki dilde de aynı ad). Tek dosyalık sayfanın öneri motoru ve oyun listesi buraya taşındı ve genişletildi. Ayrıntılı kullanım: `desktop/README.md`.
+
+- **Ad değişikliği (0.1.4):** `name` rigtune, `productName` RigTune, `appId` tr.savkar.rigtune, paket dosyaları `RigTune-Kurulum-<sürüm>.exe` ve `RigTune-Tasinabilir-<sürüm>.exe`. Eski addaki veri klasörü ilk açılışta (ya da komut satırında) yeni klasöre bir kez kopyalanır (`migrateDataDir`, `core/util.js`); eski klasör silinmez. `dist/` içindeki `OyunAyarRehberi-*` dosyaları eski sürümlerdir.
+
+- **Ne yapar:** Ekran kartını, monitörü (EDID), sürücü uygulamalarını ve Windows oyun ayarlarını okur. Steam, Epic, GOG, Ubisoft, Xbox/Microsoft Store, EA, Battle.net, Rockstar, Riot, Playnite (eklentiyle) ve klasörlerdeki oyunları bulur. Oyun klasöründeki DLL'lerden DLSS, FSR, XeSS, kare üretimi, Reflex, motor ve hile korumasını çıkarır. AMD Adrenalin, NVIDIA App ve Intel Graphics Software için oyun profili ayarlarını, oyun içi ayarları ve bir kez yapılacak genel ayarları önerir. Donanım, sürücü, yazılım, monitör ve oyun değişikliklerini algılar, yeniden analiz eder, bildirim gösterir.
+- **Teknoloji:** Electron 44.4.5, kütüphane bağımlılığı yok (yalnızca electron ve electron-builder geliştirme bağımlılığı). Windows birincil; macOS (system_profiler) ve Linux (/sys/class/drm, EDID, lspci) için algılama yazıldı ama o sistemlerde denenmedi.
+- **Çalıştırma:** `cd desktop` → `npm start`. Arayüzsüz analiz: `node src/cli.js` (`--oyun "ad"`, `--json`, `--hedef kalite|denge|fps`, `--dil tr|en`, `--yerel`, `--veri klasör`; İngilizce eş adlar `--game`, `--goal`, `--lang`, `--offline`, `--data`). Testler: `npm test`. Paket: `npm run dist` → `desktop/dist/`.
+- **Veri:** `%APPDATA%\RigTune\` (settings, snapshot, changes, cache-probe, cache-meta, playnite-games JSON dosyaları). 0.1.3 ve öncesi `%APPDATA%\Oyun Ayar Rehberi\` kullanıyordu.
+- **Arayüzü görsel kontrol:** `OAR_SHOT=<klasör>` ortam değişkeniyle açılırsa her bölümün PNG görüntüsünü alıp kapanır; `OAR_SHOT_PAGES="overview,games:Witcher,settings"` hangi sayfaların alınacağını seçer. `OAR_DEBUG=1` izleme olaylarını konsola yazar. Açık olan (paketli) uygulamaya ve gerçek verilere dokunmadan denemek için `--user-data-dir=<klasör>` ile başlat; o klasöre `settings.json` olarak `{"lang":"en"}` yazılırsa İngilizce açılır.
+
+### Kod haritası
+
+| Dosya | Görevi |
+|---|---|
+| `src/core/detect/windows-system.ps1` | GPU (kayıt defteri, VRAM, AMD paket sürümü), monitörler (DisplayConfig + GDI kipleri + EDID + HDR), kaldırma kayıtları, Windows oyun ayarları |
+| `src/core/detect/windows-libs.ps1` | Steam yolu, GOG/Ubisoft/EA kayıtları, sürücüler ve .GamingRoot, Xbox paketleri |
+| `src/core/detect/edid.js` | EDID çözücü (CTA-861, DisplayID; FreeSync/HDMI VRR/Adaptive-Sync, HDR parlaklığı) |
+| `src/core/detect/amd-settings.js` | Adrenalin'in kayıtlı ayarlarını okur (oyun profilleri, genel ayarlar); bkz. "Adrenalin ayarlarını okuma" |
+| `src/core/detect/index.js` | Platform algılama (Windows/macOS/Linux), ortak biçim, oyun kartı/monitör seçimi |
+| `src/core/gpudb.js` | Model → mimari, yaklaşık güç sınıfı (RX 9070 XT = 100), özellikler |
+| `src/core/libraries/*` | Başlatıcı tarayıcıları, VDF çözücü, klasör ve Playnite tarayıcısı |
+| `src/core/probe.js` | Oyun klasörü incelemesi ve PE dosya sürümü okuma |
+| `src/core/gamedb.js` | Oyun veritabanı (eski `G` dizisi + yeni alanlar). `no` genel not, `noAmd` yalnızca AMD'de gösterilen not, `en: { no, noAmd, tips }` İngilizce karşılıkları |
+| `src/core/engine/common.js` | Profil birleştirme, yük seviyesi, ölçekleme ihtiyacı, kare üretimi ve FPS sınırı planı |
+| `src/core/engine/amd.js` | Eski `rec()` fonksiyonunun taşınmış hâli |
+| `src/core/engine/nvidia.js`, `intel.js` | NVIDIA App ve Intel Graphics Software kuralları |
+| `src/core/engine/ingame.js`, `system.js` | Oyun içi ayarlar; genel ayarlar ve sistem kontrolleri |
+| `src/core/changes.js` | Parmak izi ve değişiklik farkı |
+| `src/core/steamstore.js` | Veritabanında olmayan oyunlar için Steam mağaza bilgisi (ayarlardan kapatılabilir) |
+| `src/main/main.js` | Pencere (Windows 11'de akrilik), tepsi, izleme (aralıklı, monitör, uyku), bildirim, `oar://` protokolü |
+| `src/renderer/*` | Cam arayüz: Özet, Oyunlar, Genel, Geçmiş, Ayarlar |
+| `src/locales/tr.js`, `en.js`, `index.js` | Bütün metinler (motor, sistem kontrolleri, değişiklik geçmişi, tepsi/bildirim, komut satırı, arayüz) ve çevirmen `translator(dil)` |
+| `integrations/playnite/` | Playnite dışa aktarma eklentisi (PowerShell betik eklentisi): `extension.yaml` + `OyunAyarRehberi.psm1` |
+
+### Playnite entegrasyonu (17 Ekim 2026)
+
+- Playnite 10.62 açıkken `%APPDATA%\Playnite\library\games.db` dosyasını tamamen kilitler (paylaşımlı okuma da reddedilir, EBUSY). Otomatik yedekleri kütüphaneyi içermez.
+- Bu yüzden Bora'nın onayıyla `integrations/playnite/` eklentisi `%APPDATA%\Playnite\Extensions\OyunAyarRehberi_Export\` klasörüne kuruldu. Playnite açılınca, kapanınca, kütüphane güncellenince ve oyun kurulup kaldırılınca yüklü oyunları JSON olarak yazar; Eklentiler menüsünde "Oyun listesini şimdi aktar" seçeneği vardır. Playnite'ta hiçbir şeyi değiştirmez.
+- Kurulu eklenti 1.0 sürümüdür ve listeyi eski klasöre (`%APPDATA%\Oyun Ayar Rehberi\playnite-games.json`) yazar. Kaynaktaki 1.1 sürümü `%APPDATA%\RigTune\playnite-games.json` dosyasına yazar; Id, klasör ve `.psm1` adı eski kurulumun üzerine kopyalanabilsin diye değişmedi. 1.1 henüz Playnite'a kopyalanmadı.
+- `libraries/playnite.js` iki klasördeki dosyadan daha yeni olanı okur; dosya yoksa Playnite kapalıyken `games.db` içindeki BSON belgelerini arar (deneysel yedek yol).
+- `.psm1` dosyası BOM'lu UTF-8 olmalı (Windows PowerShell 5.1 BOM'suz dosyayı ANSI okur, Türkçe karakterler bozulur). Kaynağı değiştirince eklenti klasörüne yeniden kopyala ve Playnite'ı yeniden başlat.
+- Playnite, PowerShell eklenti desteğini 11. sürümde kaldıracağını duyurdu; o sürümde eklentinin .NET'e taşınması gerekir.
+- Aynı gün düzeltilen hata: kütüphane tarayıcıları kaldırma kayıtlarını `sys.uninstall` alanından okuyordu, oysa `detect/index.js` listeyi `_uninstall` alanında veriyor. Bu yüzden EA, Battle.net, Rockstar ve Riot oyunları uygulamada hiç bulunmuyordu.
+
+### Dil desteği (17 Ekim 2026)
+
+- Ayarlar > Dil: Sistem / Türkçe / English. Varsayılan "Sistem": işletim sisteminin görüntü dili Türkçeyse Türkçe, değilse İngilizce. Ayar `settings.json` içinde `lang` (`system` | `tr` | `en`). Dil değişince öneriler, tepsi menüsü ve geçmiş yeniden kurulur; yeniden tarama gerekmez.
+- Metinler `src/locales/tr.js` ve `en.js` içinde. İki dosyanın anahtar yapısı ve `{yer tutucu}` adları aynı olmalı; `npm test` bunu, oyun notlarının İngilizcesinin eksiksiz olduğunu ve İngilizce çıktıda Türkçe metin kalmadığını denetler. Yeni metin eklerken iki dosyaya da yaz.
+- Motor metni dil dosyasından üretir: `context()` dili alır, `c.t('anahtar', { parametre })` kullanılır. Öneri satırlarında `id` dilden bağımsızdır; gruplar `id` ile eşleşir, ipucu satırları `tip: true` taşır. Karar mantığı metne bakmaz (test, iki dilde kararların aynı olduğunu da denetler).
+- **AMD oyun profili ayarları, Adrenalin'in o dildeki arayüzünde göründüğü gibi yazılır** (Bora'nın isteği, 17 Ekim 2026). Adlar ve Etkin/Devre dışı değerleri `locales/*.js` içinde `amd.k` ve `amd.v`; Türkçe görünümde her satırın yanında Adrenalin'in İngilizce adı da küçük harfle gösterilir (`alt` alanı). Türkçe adlar Bora'nın Adrenalin ekran görüntüsünden (oyun profili > Ekran Kartları) alındı: AMD FSR Yükseltme, AMD FSR Kare Üretimi, Radeon Gecikme Önleme, Radeon Geliştirilmiş Senkronizasyon, Dikey Yenileme İçin Bekle ("Uygulama belirtmediyse kapalı"), Radeon Image Sharpening 2 (Netlik %), AMD Fluid Motion Frames 2.1, Radeon Super Resolution, Radeon Boost, Radeon Chill.
+- 22 Ekim 2026'da Adrenalin 26.10.1'in Türkçe arayüzünden doğrulananlar (Oyun > Ekran Kartları ve oyun profilinin "Gelişmiş" bölümü): Kare Hızı Hedef Kontrolü + Maks FPS (Frame Rate Target Control), Global Oyun Deneyimi (HYPR-RX / HYPR-RX Eco / Varsayılan / Özel; oyun sayfasında "Oyun Deneyimi": Global Deneyim / Özel), Örtüşme Önleme ("Uygulama ayarlarını kullan"), Örtüşme Önleme Yöntemi, Morfolojik Örtüşme Önleme, Yönbağımlı Filtreleme, Doku Filtreleme Kalitesi (Yüksek / Standart / Performans), Yüzey Biçim Optimizasyonu, Mozaik Döşeme Modu ("AMD için en iyileştirilmiş"), OpenGL Üçlü Arabelleğe Alma, 10-Bit Piksel Biçimi, Shader Cache'yi Sıfırla, FSR OTA Kontrol ("En Son Üretimi Kullan"), Masaüstünü Netleştir, Video Yükseltme özelliği. Dikey Yenileme İçin Bekle seçenekleri: Her zaman kapalı (Önerilmez) / Uygulama belirtmediyse kapalı / Uygulama belirtmediyse açık / Her zaman açık.
+- **Henüz doğrulanmayanlar:** Smart Access Memory'nin ve genel FreeSync anahtarının Türkçe yeri; İngilizce Adrenalin'deki "FSR OTA Control" seçeneklerinin adları (İngilizce görünümde değer "On" olarak kaldı). Tahminle değiştirilmez.
+- NVIDIA App ve Intel Graphics Software ayar adları ("DLSS Override – Model Presets" vb.) İngilizce özgün adlarıyla kalır.
+- Değişiklik geçmişi (`changes.json`) anahtar + değer olarak saklanır ve gösterilirken seçili dile çevrilir; kayıt anındaki dilde `text` de yazılır ki eski sürüm okuyabilsin. Tarama nedeni de anahtardır (`manual`, `startup`, `periodic`…); eski Türkçe kayıtlar olduğu gibi gösterilir, nedenleri ve "İlk analiz yapıldı." çevrilir.
+- Algılamadan gelen etiketler dilden bağımsız tutulur (bağlantı türü `internal`, `wireless`; Intel dahili birimlerde "(dahili)" eki) ve arayüze giderken çevrilir.
+- Uygulamanın adı iki dilde de "RigTune" (`app.name`). 0.1.3'e kadar Türkçe "Oyun Ayar Rehberi", İngilizce "Game Settings Guide" idi.
+
+### Adrenalin ayarlarını okuma (22 Ekim 2026)
+
+Bora'nın isteği: uygulama Adrenalin'deki mevcut ayarları okusun, değiştirilmesi gerekenleri belirgin göstersin. Yalnızca okunur; Adrenalin'de hiçbir şey değiştirilmez. Anlamlar, Adrenalin 26.10.1 arayüzü açılıp (Witcher 3, RDR2, NBA 2K26 ve genel sayfa) okunan değerlerle karşılaştırılarak doğrulandı.
+
+- **Oyun profilleri:** `%LOCALAPPDATA%\ATI\ACE\APL\User.blb`. "BWJE" başlıklı ikili dosya; biçim `detect/amd-settings.js` içinde `parseApl` açıklamasında. Her profil bir exe + klasör (sonu `*`) ya da `steamappid:N` taşır; Adrenalin çoğu oyun için ikisini de yazar. Değerler UTF-16 `0x0300::değer;;` biçiminde. Doğrulanan anahtarlar: `Dlg_PFEnable` Gecikme Önleme, `Bst_PFEnable` Boost (desteklemeyen oyunda kayıt yok, Adrenalin'de satır da yok), `Chil_PFEnable`/`Chil_MinFRate`/`Chil_MaxFRate`, `Ris_PFEnable` + `Ris_SHDegree` (0,3 = %30), `UFG_PFEnabled` AFMF, `FsrOverride` FSR Yükseltme, `MlfiOverride` FSR Kare Üretimi, `TurboSync` Gelişmiş Senkronizasyon, `VSyncControl` (0–3, 1 = Uygulama belirtmediyse kapalı).
+- **Profili olmayan oyun genel ayarları kullanır** (Adrenalin'de "Oyun Deneyimi: Global Deneyim"). Oyun sayfasında bir ayar değişince Adrenalin o oyun için profil açar.
+- **Genel ayarlar:** kayıt defterinde ekran kartının sürücü anahtarı (`KMD_DeLagEnabled`, `KMD_ChillEnabled`, `KMD_RadeonBoostEnabled`, `Gmx_FRTCEnabled`, `Gmx_FRTCFrameRateTarget`), `UMD` alt anahtarı (`FsrOverride`, `MlfiOverride`, `TurboSync`, `VSyncControl`, `TFQ` 0 Yüksek / 1 Standart / 2 Performans, `SurfaceFormatReplacements`, `Tessellation_OPTION` 0 = AMD için en iyileştirilmiş, `AntiAlias` 1 = Uygulama ayarlarını kullan, `MLF`, `FsrOtaIndex` 1 = En Son Üretimi Kullan) ve `HKCU\Software\AMD\CN` `LastSavedExpID` (`PROFILE_CUSTOM` = Özel). Genel Radeon Image Sharpening yalnızca `%LOCALAPPDATA%\AMD\CN\GExDb.blb` (JSON) içinde: `""` anahtarı > `Custom` profili > özellik 27 (açık/kapalı) ve 28 (netlik). Oyun Deneyimi Özel değilse RIS okunmaz.
+- **Okunamayanlar (arayüzde "Okunamadı · Adrenalin'de kontrol et"):** Radeon Super Resolution (genel `Gmx_RSREnabled` = 1 iken arayüzde RSR kapalıydı, yani o değer anahtarın durumunu göstermiyor; oyun profilindeki karşılığı bulunamadı), genel AFMF, profilinde `UFG_PFEnabled` olmayan oyunlarda AFMF (ör. RDR2; arayüzde bu oyunlarda satır "AFMF 2.1", kayıt olanlarda "AFMF 2.1 - Manuel" yazıyor). Genel 10-Bit Piksel Biçimi, FreeSync ve SAM karşılaştırılmıyor. GExDb'deki oyun GUID'li kayıtlar User.blb ile tutmadığı için kullanılmıyor.
+- **Motor:** `engine/amd.js` her satıra `cur` (şu anki değer, Adrenalin'in sözcükleriyle), `state` (`change` | `ok` | `unknown` | `na`) ve `scope` (`game` | `global`) ekler; `driver.state` sayıları verir. Genel sayfası için aynısı `engine/system.js` içinde. Okuma başarısızsa (`c.amd` null) eski görünüm kalır.
+- **Arayüz:** Adrenalin sekmesinde özet kutusu ("Adrenalin'de N ayarı değiştir" / "uygun"), sonra Değiştir (şu an → öneri), Okunamadı, Bilgi grupları; doğru olanlar katlı "Zaten doğru" listesinde. Oyun listesinde ve sekme düğmesinde değişecek ayar sayısı rozeti. Komut satırı: `!` değişecek, `✓` doğru, `?` okunamadı.
+- **Canlı yenileme:** `main.js` iki dosyayı 2 sn aralıkla izler (`fs.watchFile`) ve pencere odaklanınca `Analyzer.refreshAmd()` çağırır; yalnızca Adrenalin ayarları yeniden okunur, fark varsa öneriler yeniden kurulur.
+- **Test fikstürü:** `test/fixtures/amd-user.blb` gerçek dosyanın kopyası; `E:\A_Games\...` altındaki iki kişisel oyun klasörü yolu aynı uzunlukta `D:\Games\GameA\xxx` biçiminde sahte yollarla değiştirildi.
+- Ekran görüntüsü aracına `OAR_SHOT_SCROLL=1` eklendi: katlı listeler açılır, sayfanın altı `_alt.png` olarak alınır.
+
+### Eski sayfadan taşınırken değişen kurallar
+
+- FSR 4 yükseltmesinin adı Adrenalin'de artık "AMD FSR Upscaling". RX 9000'de ML kare üretimi için "AMD FSR Frame Generation" satırı eklendi (oyunda FSR 3.1.4+ gerekir).
+- FPS sınırı için Radeon Chill yerine Frame Rate Target Control (FRTC) ya da oyun içi sınırlayıcı öneriliyor; Chill yalnızca hafif oyunlarda.
+- **FRTC (Kare Hızı Hedef Kontrolü) Adrenalin 26.10.1'de yalnızca genel ayarda var, oyun profilinde yok** (22 Ekim 2026'da arayüzde doğrulandı). Bu yüzden oyun sayfasındaki satır "genel ayar" etiketiyle genel değeri gösterir; Genel sayfasına da ayrı FRTC satırı eklendi. AFMF açık oyunlarda yarım sınır (ör. 70) oyun içinden konur; oyunda sınırlayıcı yoksa Radeon Chill en az = en çok = yarım değer önerilir.
+- FRTC karşılaştırmasında hedefin (yenileme hızı − 3) en çok 4 altı uygun sayılır (144 Hz'de 137–141); Bora'nın 140 ayarı "değiştir" diye gösterilmez (`capOk`, `engine/common.js`).
+- Değişken yenileme olmayan monitörde FPS sınırı "yenileme hızı + VSync" oluyor (eski sayfa her durumda yenileme hızı − 3 diyordu).
+- Yük seviyesine ekran kartı gücü de katılıyor: `y − 1 + log2(piksel / 2560×1440) + log2(100 / güç sınıfı)`.
+- Sürücü önerisi (26.9.2 veya üstü) kayıt defterindeki AMD Software sürümüyle karşılaştırılıyor.
+
+## Açık işler
+
+1. ~~Monitörün gerçek modelini ve yenileme hızını öğren~~ (masaüstü uygulaması EDID'den okuyor).
+2. ~~Steam kütüphanesini otomatik oku~~ (masaüstü uygulamasında yapıldı).
+3. Xbox oyunları otomatik bulunuyor. Ubisoft klasöründeki üç Assassin's Creed klasöründe yalnızca `logs` var, yani yüklü değiller. Indiana Jones (`G:\The Great Circle`) için uygulamada Ayarlar > Oyun klasörleri > Klasör ekle gerekiyor.
+4. Gothic 1 Remake'te Adrenalin'in FSR Upscaling anahtarının çıkıp çıkmadığını oyunda kontrol et; `gamedb.js` içindeki `f` alanını buna göre güncelle. (Oyun dosyası FSR 3.1.4: `amd_fidelityfx_dx12.dll` 1.0.1.41314.)
+5. Masaüstü uygulamasını macOS ve Linux'ta dene.
+6. ~~İstenirse arayüze İngilizce dil desteği ekle~~ (17 Ekim 2026'da yapıldı; bkz. Dil desteği).
+7. RSR'nin (genel ve oyun profili) ve genel AFMF'nin nerede saklandığını bul. Yöntem: Adrenalin'de tek bir anahtarı değiştirip `User.blb`, `GExDb.blb` ve sürücü kayıt defteri anahtarını önce/sonra karşılaştırmak. Bora'nın onayı olmadan ayar değiştirilmez.
+8. GitHub deposu yok (22 Ekim 2026'da `gh repo list` ile bakıldı). Ad RigTune olarak belirlendi; deponun herkese açık mı gizli mi olacağına Bora karar verecek. Herkese açık olacaksa test fikstürü ve kişisel yollar yeniden gözden geçirilecek.
+9. Playnite eklentisinin 1.1 sürümünü `%APPDATA%\Playnite\Extensions\OyunAyarRehberi_Export\` klasörüne kopyala (BOM'lu kalmalı) ve Playnite'ı yeniden başlat. Bora'ya sorulmadan yapılmaz; yapılmasa da uygulama eski klasördeki listeyi okumaya devam eder.

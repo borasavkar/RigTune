@@ -1,0 +1,341 @@
+<title>Adrenalin Ayar Rehberi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: üstte monitör şeridi; solda oyun listesi, sağda Adrenalin ayar sayfasına benzeyen öneri tablosu. */
+:root{
+  --bg:#eef0f3; --panel:#ffffff; --line:#d6dae1; --fg:#1b1f26; --muted:#5d6573;
+  --accent:#b3122e; --accent-soft:#f6dde2; --on:#1f7a4d; --on-soft:#dcefe4; --off:#6b7280; --off-soft:#e7e9ee; --set:#1e5aa8; --set-soft:#dde8f6; --warn:#9a5b00; --warn-soft:#f6ead2;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13161b; --panel:#1b1f26; --line:#2c323c; --fg:#e7eaef; --muted:#9aa3b1;
+  --accent:#ff5c74; --accent-soft:#3a1a22; --on:#5fd39a; --on-soft:#173527; --off:#9aa3b1; --off-soft:#262b33; --set:#7fb0ff; --set-soft:#1a2b45; --warn:#f0b75a; --warn-soft:#3a2c14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13161b; --panel:#1b1f26; --line:#2c323c; --fg:#e7eaef; --muted:#9aa3b1;
+  --accent:#ff5c74; --accent-soft:#3a1a22; --on:#5fd39a; --on-soft:#173527; --off:#9aa3b1; --off-soft:#262b33; --set:#7fb0ff; --set-soft:#1a2b45; --warn:#f0b75a; --warn-soft:#3a2c14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:2.2rem;line-height:1;margin:0;letter-spacing:.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.gpu{font-family:var(--mono);font-size:.8rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:4px 8px;background:var(--panel)}
+.bar{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center}
+.bar label{display:flex;flex-direction:column;gap:2px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+select,input[type=text]{font:inherit;font-size:.95rem;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar .note{font-size:.82rem;color:var(--muted);flex:1 1 220px;min-width:0}
+.main{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:820px){.main{grid-template-columns:minmax(0,1fr)}}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-width:0}
+.side .top{padding:12px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.side input[type=text]{width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:.78rem;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.list{list-style:none;margin:0;padding:6px;max-height:520px;overflow:auto}
+@media (max-width:820px){.list{max-height:300px}}
+.list button{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 10px;border-radius:6px;cursor:pointer}
+.list button:hover{background:var(--bg)}
+.list button[aria-current=true]{background:var(--accent-soft)}
+.list button:focus-visible{outline:2px solid var(--accent)}
+.list .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .tg{font-size:.7rem;color:var(--muted);font-family:var(--mono);flex:none}
+.list .grp{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 10px 4px;font-weight:600}
+.ask{padding:12px;border-top:1px solid var(--line);display:grid;gap:8px}
+.ask h3{margin:0;font-family:var(--display);font-size:1.15rem;font-weight:600}
+.ask p{margin:0;font-size:.82rem;color:var(--muted)}
+.row2{display:flex;gap:6px}
+.row2 input{flex:1}
+.btn{font:inherit;font-size:.88rem;font-weight:600;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:default}
+.status{font-size:.82rem;color:var(--muted);min-height:1.2em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.card .hd{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.card h2{font-family:var(--display);font-weight:700;font-size:1.9rem;line-height:1.05;margin:0;text-wrap:balance}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:.74rem;font-weight:600;border-radius:4px;padding:2px 8px;background:var(--off-soft);color:var(--muted)}
+.tag.a{background:var(--accent-soft);color:var(--accent)}
+.tag.w{background:var(--warn-soft);color:var(--warn)}
+.perf{font-size:.88rem;color:var(--muted)}
+.perf b{color:var(--fg)}
+.sec{padding:6px 18px 4px;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:10px}
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;padding:10px 18px;border-top:1px solid var(--line)}
+.set:first-of-type{border-top:0}
+.set .k{font-weight:600}
+.set .why{grid-column:1/-1;font-size:.84rem;color:var(--muted);max-width:75ch}
+.pill{font-family:var(--mono);font-size:.8rem;border-radius:4px;padding:2px 8px;align-self:start;text-align:right;max-width:46vw}
+.pill.on{background:var(--on-soft);color:var(--on)}
+.pill.off{background:var(--off-soft);color:var(--off)}
+.pill.set{background:var(--set-soft);color:var(--set)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.gnote{margin:12px 18px 0;padding:10px 12px;border-left:3px solid var(--warn);background:var(--warn-soft);font-size:.86rem;border-radius:0 6px 6px 0}
+.ft{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:14px 18px 16px}
+.ft .status{flex:1 1 200px}
+details.global{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+details.global summary{cursor:pointer;padding:12px 16px;font-family:var(--display);font-size:1.25rem;font-weight:600}
+details.global .set:first-of-type{border-top:1px solid var(--line)}
+.foot{font-size:.8rem;color:var(--muted);max-width:90ch}
+.custom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.custom label{display:flex;flex-direction:column;gap:2px;font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.custom label.full{grid-column:1/-1}
+.custom .ck{flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:.82rem}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .2s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Adrenalin <span>Ayar Rehberi</span></h1>
+      <p class="sub">Steam'de yüklü oyunların listenin başında. Oyunu seç, monitörünü gir; Adrenalin'de oyun profiline hangi ayarı yazacağını gerekçesiyle gör. Listede olmayan oyunu Claude'a sorabilir ya da özelliklerini kendin girebilirsin.</p>
+    </div>
+    <div class="gpu">RX 9070 XT · 16 GB · RDNA 4 · Adrenalin 26.x</div>
+  </header>
+
+  <div class="bar" role="group" aria-label="Monitör">
+    <label for="res">Çözünürlük
+      <select id="res"><option value="1080">1920×1080</option><option value="1440" selected>2560×1440</option><option value="uw">3440×1440 (UW)</option><option value="4k">3840×2160</option></select>
+    </label>
+    <label for="hz">Yenileme hızı
+      <select id="hz"><option>60</option><option>75</option><option>100</option><option>120</option><option>144</option><option selected>165</option><option>180</option><option>240</option><option>360</option></select>
+    </label>
+    <label for="fs">FreeSync
+      <select id="fs"><option value="1" selected>Var</option><option value="0">Yok</option></select>
+    </label>
+    <div class="note">Başlangıç değerleri örnek: 1440p · 165 Hz. Kendi monitörünü seç; tarayıcın hatırlar.</div>
+  </div>
+
+  <div class="main">
+    <aside class="side">
+      <div class="top">
+        <input type="text" id="q" placeholder="Oyun ara…" aria-label="Oyun ara" autocomplete="off">
+        <div class="chips" id="chips"></div>
+      </div>
+      <ul class="list" id="list"></ul>
+      <div class="ask">
+        <h3>Listede yok mu?</h3>
+        <p id="askp">Oyunun adını yaz; Claude oyunun özelliklerini (FSR sürümü, kare üretimi, yük, anti-cheat) tahmin eder, öneriler buna göre hesaplanır.</p>
+        <div class="row2" id="askrow">
+          <input type="text" id="aq" placeholder="örn. Silent Hill f" aria-label="Oyun adı" autocomplete="off">
+          <button class="btn" id="ab">Sor</button>
+        </div>
+        <div class="status" id="as" aria-live="polite"></div>
+        <details id="manual">
+          <summary style="cursor:pointer;font-size:.85rem;font-weight:600">Özellikleri kendim gireceğim</summary>
+          <div class="custom" style="margin-top:8px">
+            <label class="full" for="c_n">Oyun adı<input type="text" id="c_n" autocomplete="off"></label>
+            <label for="c_t">Tür<select id="c_t"><option value="rek">Rekabetçi online</option><option value="koop">Online ko-op</option><option value="aks" selected>Tek oyunculu aksiyon/RPG</option><option value="yar">Yarış / spor / simülasyon</option><option value="haf">Hafif / strateji</option></select></label>
+            <label for="c_y">GPU yükü<select id="c_y"><option value="1">Hafif</option><option value="2" selected>Orta</option><option value="3">Ağır</option><option value="4">Çok ağır (RT)</option></select></label>
+            <label for="c_f">FSR desteği<select id="c_f"><option value="fsr4">FSR 4 (yerleşik)</option><option value="fsr31" selected>FSR 3.1</option><option value="fsr3">FSR 3.0</option><option value="fsr2">FSR 2.x</option><option value="fsr1">FSR 1</option><option value="yok">Yok</option></select></label>
+            <label for="c_ac">Anti-cheat<input type="text" id="c_ac" placeholder="boşsa yok" autocomplete="off"></label>
+            <label class="ck" for="c_fg"><input type="checkbox" id="c_fg"> Oyun içi kare üretimi var</label>
+            <label class="ck" for="c_al"><input type="checkbox" id="c_al"> Anti-Lag 2 destekli</label>
+            <label class="ck" for="c_60"><input type="checkbox" id="c_60"> Motor 60 FPS ile sınırlı</label>
+            <button class="btn ghost" id="c_go" style="grid-column:1/-1">Önerileri göster</button>
+          </div>
+        </details>
+      </div>
+    </aside>
+
+    <section class="card" id="card" aria-live="polite"></section>
+  </div>
+
+  <details class="global">
+    <summary>Bir kez yapılacak genel ayarlar</summary>
+    <div id="global"></div>
+  </details>
+
+  <p class="foot">Öneriler kural tabanlıdır: oyunun türü, GPU yükü, FSR sürümü ve monitörün birlikte değerlendirilir. "Performans" satırı kaba bir tahmindir, ölçüm değildir; Adrenalin'in Alt+R metrik katmanıyla gerçek FPS'ini kontrol et. Adrenalin'de bir anahtar görünmüyorsa o oyun o özelliği desteklemiyordur. Anti-Lag 2, yeni sürümlerde ve bazı oyun menülerinde "FSR Latency Reduction" adıyla geçebilir.</p>
+</div>
+
+<script>
+const T={rek:"Rekabetçi",koop:"Online ko-op",aks:"Tek oyunculu",yar:"Yarış/Spor",haf:"Hafif/Strateji"};
+const F={fsr4:"FSR 4 yerleşik",fsr31:"FSR 3.1",fsr31n:"FSR 3.1 · FSR 4 listesinde değil",fsr3:"FSR 3.0",fsr2:"FSR 2.x",fsr1:"FSR 1",yok:"Ölçekleyici yok"};
+const FS=f=>f==="fsr31n"?"FSR 3.1":F[f];
+// n ad, t tür, y yük 1-4, f FSR, fg oyun içi kare üretimi, al Anti-Lag 2, c60 60 FPS kilitli, ac anti-cheat, no not
+const G=[
+ {n:"Counter-Strike 2",t:"rek",y:1,f:"fsr1",al:1,ac:"VAC",no:"Anti-Lag 2 oyun tarafından destekleniyor; Adrenalin'de Anti-Lag açıkken CS2 AL2 kullanır. Oyundaki FSR 1'i kapalı tut."},
+ {n:"Valorant",t:"rek",y:1,f:"yok",ac:"Vanguard"},
+ {n:"League of Legends",t:"rek",y:1,f:"yok",ac:"Vanguard",no:"Kart neredeyse boşta çalışır; tearing istemiyorsan FPS sınırı koymak gücü ve ısıyı ciddi düşürür."},
+ {n:"Dota 2",t:"rek",y:1,f:"fsr1",ac:"VAC"},
+ {n:"Apex Legends",t:"rek",y:2,f:"yok",ac:"EAC",no:"Adrenalin 26.8.1'de RX 9070 XT'de çökme raporlandı; 26.9.1'de düzeltildi. 26.9.1 veya üstünü kullan."},
+ {n:"Fortnite",t:"rek",y:2,f:"yok",ac:"EAC + BattlEye",no:"Fortnite'ın kendi TSR ölçekleyicisi var; FSR 4 yok. Rekabetçi modda Performance render modu daha yüksek FPS verir."},
+ {n:"Overwatch 2",t:"rek",y:1,f:"fsr2",ac:"Blizzard"},
+ {n:"Rainbow Six Siege X",t:"rek",y:1,f:"yok",ac:"BattlEye"},
+ {n:"PUBG: Battlegrounds",t:"rek",y:2,f:"yok",ac:"BattlEye"},
+ {n:"Rocket League",t:"rek",y:1,f:"yok",ac:"EAC"},
+ {n:"Marvel Rivals",t:"rek",y:2,f:"fsr31",ac:"NetEase"},
+ {n:"Call of Duty: Black Ops 6 / Warzone",t:"rek",y:2,f:"fsr31",ac:"Ricochet"},
+ {n:"Battlefield 6",t:"rek",y:2,f:"fsr31",ac:"Javelin"},
+ {n:"Escape from Tarkov",t:"rek",y:3,f:"fsr2",ac:"BattlEye",no:"CPU ve bellek darboğazı yüksek; GPU ayarından çok harita ve RAM etkiler."},
+ {n:"Helldivers 2",t:"koop",y:2,f:"fsr1",ac:"GameGuard"},
+ {n:"Cyberpunk 2077",t:"aks",y:4,f:"fsr31",fg:1,no:"Path tracing (Overdrive) RDNA 4'te bile çok ağır; RT Ultra/Psycho daha dengeli. FSR 4 yükseltmesi Kalite modunda net fark yaratır."},
+ {n:"Alan Wake 2",t:"aks",y:4,f:"fsr2",no:"Yolu izlenen ışın kapalı, RT düşük/orta önerilir."},
+ {n:"Black Myth: Wukong",t:"aks",y:4,f:"fsr3",fg:1},
+ {n:"Monster Hunter Wilds",t:"aks",y:3,f:"fsr31",fg:1,no:"CPU yükü yüksek; yüksek doku paketini 16 GB VRAM rahat taşır."},
+ {n:"Kingdom Come: Deliverance II",t:"aks",y:3,f:"fsr31"},
+ {n:"Assassin's Creed Shadows",t:"aks",y:4,f:"fsr31",fg:1},
+ {n:"Ghost of Tsushima",t:"aks",y:2,f:"fsr31",fg:1,al:1},
+ {n:"God of War Ragnarök",t:"aks",y:3,f:"fsr31",fg:1},
+ {n:"Marvel's Spider-Man 2",t:"aks",y:4,f:"fsr31",fg:1},
+ {n:"Ratchet & Clank: Rift Apart",t:"aks",y:3,f:"fsr31",fg:1,al:1},
+ {n:"Horizon Zero Dawn Remastered",t:"aks",y:2,f:"fsr31",fg:1},
+ {n:"S.T.A.L.K.E.R. 2",t:"aks",y:4,f:"fsr31",fg:1,no:"Unreal Engine 5 takılmaları sürücüyle çözülmez; shader derlemesi bitene kadar ilk dakikalar dalgalı olur."},
+ {n:"Crimson Desert",t:"aks",y:4,f:"fsr4",fg:1,no:"FSR Redstone (ışın yeniden üretimi dahil) oyunda yerleşik; ayarları oyun menüsünden yap."},
+ {n:"Hogwarts Legacy",t:"aks",y:3,f:"fsr2"},
+ {n:"Baldur's Gate 3",t:"aks",y:2,f:"fsr2"},
+ {n:"Elden Ring / Nightreign",t:"aks",y:2,f:"yok",c60:1,ac:"EAC",no:"Motor 60 FPS ile kilitli. AFMF sürücü seviyesinde çalışır, oyuna müdahale etmez; 120 FPS görüntü elde edersin."},
+ {n:"Red Dead Redemption 2",t:"aks",y:3,f:"fsr2",s:"C:",lp:1791497207,no:"Oyun FSR 2 kullanıyor; Adrenalin bunu FSR 4'e yükseltemez. Vulkan API genelde DX12'den daha stabil kare süresi verir."},
+ {n:"The Witcher 3: Wild Hunt — Remastered",t:"aks",y:3,f:"fsr4",fg:1,al:1,s:"C:",lp:1792019608,no:"29 Eylül 2026 remaster sürümü: FSR 4, FSR kare üretimi ve Anti-Lag 2 oyunda yerleşik. Path tracing en ağır ayar; açarsan FSR 4 Performans ve oyun içi kare üretimi gerekir. Adrenalin 26.9.2 bu oyun için optimizasyon içeriyor."},
+ {n:"Gothic 1 Remake",t:"aks",y:3,f:"fsr31n",fg:1,s:"C:",lp:1787265185,no:"Unreal Engine 5. Oyunda FSR 3.1 var ama AMD'nin FSR 4 yükseltme listesinde görünmüyor; Adrenalin'de anahtar çıkarsa aç. Haziran yamasından sonra oyun içi FSR kare üretiminin bozulduğu bildirildi; sorun yaşarsan onu kapatıp AFMF kullan. Shader derleme takılmaları sürücüyle çözülmez."},
+ {n:"NBA 2K26",t:"yar",y:1,f:"fsr3",s:"C:",lp:1790286388,no:"Atış zamanlaması gecikmeye duyarlı. Kare üretimi kullanma, Anti-Lag açık kalsın."},
+ {n:"Age of Empires III: Definitive Edition",t:"haf",y:1,f:"fsr1",s:"D:",lp:1789173968,no:"Kalabalık savaşlarda işlemci sınırlar. Oyundaki FSR 1'i kapalı tut; kart native çözünürlükte rahat çalışır."},
+ {n:"Mount & Blade II: Bannerlord",t:"haf",y:1,f:"yok",s:"C:",lp:1767741417,no:"Darboğaz ekran kartı değil, işlemcinin tek çekirdeği. Büyük savaşlarda FPS düşüyorsa Savaş Boyutu ayarını düşür; grafik ayarları fazla fark yaratmaz. Oyun DirectX 11 kullanır, FSR yok."},
+ {n:"Windrose",t:"koop",y:3,f:"fsr4",fg:1,s:"H:",sx:1,lp:0,no:"Erken erişim, Unreal Engine 5. FSR 4 (Redstone) ve kare üretimi oyunda yerleşik. Steam bu oyunun kurulumunu H: sürücüsünde gösteriyor; o sürücüye şu an erişilemedi."},
+ {n:"GTA V Enhanced",t:"aks",y:2,f:"fsr3",fg:1,ac:"BattlEye (Online)"},
+ {n:"Starfield",t:"aks",y:3,f:"fsr3",fg:1,no:"26.9.1 RX 9000'de Starfield çökmelerini düzeltti."},
+ {n:"Forza Horizon 5",t:"yar",y:2,f:"fsr2"},
+ {n:"Minecraft (Java)",t:"haf",y:1,f:"yok"},
+ {n:"Civilization VI",t:"haf",y:1,f:"yok"},
+ {n:"Hades II",t:"haf",y:1,f:"yok"}
+];
+const $=s=>document.querySelector(s);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let extra=store.get("ek",[]);
+let mon=store.get("mon",{res:"1440",hz:165,fs:1});
+let cur=store.get("cur","The Witcher 3: Wild Hunt — Remastered");
+let filt="hepsi";
+$("#res").value=mon.res;$("#hz").value=String(mon.hz);$("#fs").value=String(mon.fs);
+
+function all(){return [...extra.map(g=>({...g,ek:1})),...G]}
+function lvl(g){const sh={"1080":-1,"1440":0,"uw":0.5,"4k":1}[mon.res];return Math.max(0,Math.min(3,Math.round(g.y-1+sh)))}
+const LV=["Çok rahat: native çözünürlükte FPS fazlasıyla yeterli","Rahat: native çözünürlükte akıcı","Sınırda: yüksek ayarlarda ölçekleyici gerekebilir","Zor: ölçekleyici gerekli, RT ayarlarını düşür"];
+
+function rec(g){
+  const L=lvl(g),hz=+mon.hz,fs=+mon.fs,rk=g.t==="rek",S=[];
+  const add=(k,v,c,why)=>S.push({k,v,c,why});
+  const need=L>=2||(mon.res==="4k"&&L>=1&&!rk);
+  // Ölçekleme
+  let up;
+  if(g.f==="fsr4"){up=need?["Oyun içi FSR 4 · Kalite","set","Oyun FSR 4'ü yerleşik destekliyor; Adrenalin tarafında ek işlem gerekmez."]:["Native / FSR 4 Native AA","set","Kart yeterli; ölçekleme yerine FSR 4'ün Native AA modu varsa onu kullan, yoksa oyunun TAA'sı."]}
+  else if(g.f==="fsr31"){up=need?["Oyunda FSR 3.1 · Kalite","set","Oyun içinde FSR 3.1 seç; Adrenalin'deki FSR 4 yükseltmesi bunu otomatik FSR 4'e çevirir. RDNA 4'te FSR 4 Kalite, FSR 3.1'den belirgin daha net."]:["Native veya FSR 3.1 Native AA","set","Performans yeterli. Daha temiz kenar için FSR 3.1 Native AA seçilebilir; FSR 4 yükseltmesi açıkken FSR 4 ile işlenir."]}
+  else if(g.f==="fsr3"||g.f==="fsr2"||g.f==="fsr31n"){up=need?["Oyunda "+FS(g.f)+" · Kalite","set","Bu oyunda Adrenalin FSR 4'e yükseltme yapamaz. Görüntü FSR 4 kadar temiz olmaz; mümkünse Kalite modunda kal."]:["Native","off","Performans yeterli; "+FS(g.f)+" FSR 4'ten zayıf bir ölçekleyici, native daha temiz görünür."]}
+  else{up=need&&!rk?["RSR ile","warn","Oyunda modern ölçekleyici yok. Radeon Super Resolution'ı aç, oyunu tam ekran (exclusive) ve bir kademe düşük çözünürlükte çalıştır."]:["Native","off",rk?"Rekabetçi oyunda ölçekleme gecikme ve bulanıklık getirir; native kal.":"Performans yeterli; native çözünürlük."]}
+  add("Ölçekleme (oyun içi)",up[0],up[1],up[2]);
+  add("FSR 4 yükseltmesi",g.f==="fsr31"?"Açık":g.f==="fsr4"?"Gerekmez":"Desteklenmiyor",g.f==="fsr31"?"on":"off",
+    g.f==="fsr31"?"Oyun profilinde aç. Anahtar görünmüyorsa oyun AMD'nin FSR 4 listesinde değildir.":g.f==="fsr4"?"Oyun FSR 4'ü kendisi içeriyor.":"FSR 4 yükseltmesi yalnızca AMD'nin listesindeki FSR 3.1 oyunlarında çalışır.");
+  add("Radeon Super Resolution",up[1]==="warn"?"Açık":"Kapalı",up[1]==="warn"?"on":"off",up[1]==="warn"?"Sadece bu oyunda, tam ekran modda çalışır.":"Gerek yok; oyun içi ölçekleyici veya native daha iyi sonuç verir.");
+  // Gecikme
+  add("Radeon Anti-Lag",g.al?"Açık (Anti-Lag 2)":"Açık","on",g.al?"Oyun Anti-Lag 2'yi destekliyor; aynı anahtar oyunda AL2'yi etkinleştirir. Oyun menüsünde Anti-Lag 2 / FSR Latency Reduction seçeneği varsa onu da aç.":rk?"Rekabetçi oyunda giriş gecikmesini düşürür. Anti-Lag 1 sürücü seviyesindedir, anti-cheat sorunu yaratmaz.":"Kare üretimi kullanıyorsan gecikmeyi telafi eder; diğer durumlarda da zararsız.");
+  add("Radeon Boost","Kapalı","off","Hareket anında çözünürlüğü düşürür; görüntü dalgalanır. FSR 4 varken gereksiz.");
+  // Kare üretimi
+  let af,afc="off",afw;const base=L<=1?"hi":L===2?"mid":"lo";
+  if(rk){af="Kapalı";afw="Rekabetçi oyunda kare üretimi gecikme ekler ve hızlı harekette hata üretir.";}
+  else if(g.fg&&need){af="Kapalı";afw="Oyunun kendi FSR kare üretimini kullan; hareket vektörleriyle çalıştığı için AFMF'ten daha temizdir. İkisini birlikte açma.";}
+  else if(g.c60){af="Açık";afc="on";afw="Motor 60 FPS'te kilitli; AFMF görüntüyü yaklaşık 120 FPS'e çıkarır. Hızlı harekette kısa süreli devre dışı kalması normaldir.";}
+  else if(hz>=120&&base==="mid"){af="Açık";afc="on";afw="Temel FPS 60'ın üzerinde, monitör 120 Hz+. AFMF bu aralıkta en iyi sonucu verir.";}
+  else if(base==="lo"){af="Önce ölçekleyici";afc="warn";afw="Temel FPS 60'ın altındayken AFMF titreme ve gecikme üretir. Önce ölçekleyiciyle 60+ yap, sonra aç.";}
+  else{af="Kapalı";afw=hz<120?"Monitör 120 Hz altında; ek kare gösterilemez.":"Kart zaten yüksek FPS veriyor; kare üretimine gerek yok.";}
+  if(g.fg&&!need&&!rk){afw="Native FPS yeterli. İstersen oyunun kendi kare üretimini aç; AFMF'i kapalı tut.";af="Kapalı";afc="off";}
+  add("AMD Fluid Motion Frames",af,afc,afw);
+  // FPS sınırı
+  const capFull=hz-3, capHalf=Math.floor((hz-3)/2);
+  if(rk){add("FPS sınırı","Sınırsız","off","Rekabetçide yüksek FPS gecikmeyi düşürür. Tearing rahatsız ederse oyun içi sınır koy: "+capFull+" FPS.");}
+  else if(afc==="on"&&!g.c60){add("FPS sınırı",capHalf+" FPS (Chill)","set","AFMF çıktısı iki katına çıkar; temel FPS'i "+capHalf+"'de tutarsan çıktı "+(capHalf*2)+" FPS ile FreeSync aralığında kalır. Radeon Chill min = max = "+capHalf+".");}
+  else if(g.c60){add("FPS sınırı","Oyunun 60 kilidi","off","Ek sınır gerekmez.");}
+  else{add("FPS sınırı",capFull+" FPS","set","FreeSync aralığında kalmak için yenileme hızının 3 altı. Oyun içi sınırlayıcı varsa onu kullan, yoksa Radeon Chill min = max = "+capFull+".");}
+  // Chill
+  if(g.t==="haf"){add("Radeon Chill","Açık · "+Math.min(60,capFull)+"–"+capFull,"on","Hafif oyunda kart gereksiz yere tam güçte çalışmaz; hareket ettiğinde FPS yükselir, durunca düşer. Isı ve gürültü azalır.");}
+  else if(rk){add("Radeon Chill","Kapalı","off","Değişken FPS gecikmeyi tutarsızlaştırır.");}
+  else{add("Radeon Chill","Sadece sınırlayıcı","set","Dinamik mod yerine yukarıdaki FPS sınırı için min = max olarak kullan.");}
+  // Görüntü
+  const fsrOn=up[1]==="set"&&need;
+  add("Radeon Image Sharpening",fsrOn?"Kapalı":rk?"Açık · %50":"Açık · %30–40",fsrOn?"off":"on",fsrOn?"FSR kendi keskinleştirmesini uygular; ikisi birlikte aşırı keskin ve kumlu görüntü verir.":rk?"Uzaktaki hedefleri belirginleştirir. Kumlanma görürsen düşür.":"Oyunun TAA bulanıklığını giderir. Daha yüksek değerler kenarlarda hale oluşturur.");
+  add("Dikey eşitlemeyi bekle",fs?"Uygulama belirtmedikçe kapalı":rk?"Kapalı":"Oyunda açık",fs||rk?"off":"set",fs?"FreeSync + FPS sınırı birlikte tearing'i VSync gecikmesi olmadan çözer.":rk?"FreeSync yok; tearing pahasına düşük gecikme.":"FreeSync olmadan tearing'i önlemenin yolu VSync; gecikme ekler.");
+  add("Enhanced Sync","Kapalı","off","Bazı oyunlarda takılma ve siyah ekran sorunu bilinen bir özellik; FreeSync varken gereksiz.");
+  return {L,S};
+}
+
+const GL=[
+ ["AMD FreeSync","Açık","on","Ekran ayarlarında. Monitörün OSD menüsünde de Adaptive-Sync/FreeSync açık olmalı."],
+ ["Smart Access Memory","Açık","on","BIOS'ta Above 4G Decoding ve Re-Size BAR açık olmalı. Adrenalin > Performans > Ayarlama'dan kontrol et; RDNA 4'te ölçülebilir kazanç sağlar."],
+ ["HYPR-RX","Kapalı (oyun profilleri kullan)","off","Tek tuşla birden çok özelliği açar; rekabetçi oyunlarda AFMF gibi istenmeyen özellikleri de açabilir. Oyun bazında elle ayar daha doğru."],
+ ["Doku filtreleme kalitesi","Standart","set","Yüksek ayarı görünür fark yaratmaz."],
+ ["Yüzey biçimi optimizasyonu","Açık","on","Eski oyunlarda küçük performans kazancı; modern oyunlarda etkisiz."],
+ ["Mozaikleme modu","AMD Optimize","set","Uygulamanın ayarını sürücü sınırıyla tutar."],
+ ["Kenar yumuşatma","Uygulama ayarlarını kullan","set","Sürücü seviyesi AA (Morfolojik AA dahil) modern oyunlarda bulanıklık yaratır; kapalı tut."],
+ ["Sürücü sürümü","26.9.2 veya üstü","set","26.9.2, Witcher 3 Remastered için optimizasyon içeriyor. 26.8.1'de RX 9070 XT'de Apex Legends çökmesi vardı, 26.9.1'de düzeltildi. Sürüm değiştirirken AMD Cleanup Utility ile temiz kurulum yap."]
+];
+$("#global").innerHTML=GL.map(([k,v,c,w])=>`<div class="set"><div class="k">${k}</div><div class="pill ${c}">${v}</div><div class="why">${w}</div></div>`).join("");
+
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function chips(){const opts=[["hepsi","Hepsi"],["steam","Steam'im"],...Object.entries(T)];$("#chips").innerHTML=opts.map(([k,v])=>`<button class="chip" aria-pressed="${filt===k}" data-f="${k}">${v}</button>`).join("")}
+function list(){
+  const q=$("#q").value.trim().toLocaleLowerCase("tr");
+  const items=all().filter(g=>(filt==="hepsi"||g.t===filt||(filt==="steam"&&g.s))&&(!q||g.n.toLocaleLowerCase("tr").includes(q)));
+  const ek=items.filter(g=>g.ek),stm=items.filter(g=>!g.ek&&g.s).sort((a,b)=>(b.lp||0)-(a.lp||0)),std=items.filter(g=>!g.ek&&!g.s).sort((a,b)=>a.n.localeCompare(b.n,"tr"));
+  const li=g=>`<li><button data-n="${esc(g.n)}" aria-current="${g.n===cur}"><span class="nm">${esc(g.n)}</span><span class="tg">${g.f==="fsr31"?"FSR 4↑":g.f==="fsr4"?"FSR 4":T[g.t].split(" ")[0]}</span></button></li>`;
+  $("#list").innerHTML=(ek.length?`<li class="grp">Senin eklediklerin</li>`+ek.map(li).join(""):"")+(stm.length?`<li class="grp">Steam kütüphanen · ${stm.length} · son oynanan üstte</li>`+stm.map(li).join(""):"")+(std.length?`<li class="grp">Hazır liste · ${std.length}</li>`+std.map(li).join(""):"")+(items.length?"":`<li class="grp">Eşleşen oyun yok. Aşağıdan Claude'a sor.</li>`);
+}
+function show(){
+  const g=all().find(x=>x.n===cur)||G.find(x=>x.s)||G[0];cur=g.n;store.set("cur",cur);
+  const {L,S}=rec(g);
+  const sec=(t,keys)=>`<div class="sec">${t}</div>`+S.filter(s=>keys.includes(s.k)).map(s=>`<div class="set"><div class="k">${s.k}</div><div class="pill ${s.c}">${esc(s.v)}</div><div class="why">${esc(s.why)}</div></div>`).join("");
+  $("#card").innerHTML=`<div class="hd"><h2>${esc(g.n)}</h2>
+   <div class="tags">${g.s?`<span class="tag ${g.sx?"w":"a"}">Steam · ${g.s}${g.sx?" erişilemiyor":""}</span>`:""}<span class="tag">${T[g.t]}</span><span class="tag ${g.f==="fsr31"||g.f==="fsr4"?"a":""}">${F[g.f]}</span>${g.fg?'<span class="tag">Oyun içi kare üretimi</span>':""}${g.al?'<span class="tag a">Anti-Lag 2</span>':""}${g.c60?'<span class="tag w">60 FPS kilitli</span>':""}${g.ac?`<span class="tag">Anti-cheat: ${esc(g.ac)}</span>`:""}${g.ek?`<span class="tag w">${g.src==="claude"?"Claude tahmini · doğrula":"Elle girildi"}</span>`:""}</div>
+   <div class="perf">Tahmini durum (${$("#res").selectedOptions[0].text}, ${mon.hz} Hz): <b>${LV[L]}</b></div></div>
+   ${g.no?`<div class="gnote">${esc(g.no)}</div>`:""}
+   ${sec("Görüntü ve ölçekleme",["Ölçekleme (oyun içi)","FSR 4 yükseltmesi","Radeon Super Resolution","Radeon Image Sharpening"])}
+   ${sec("Akıcılık ve gecikme",["AMD Fluid Motion Frames","Radeon Anti-Lag","FPS sınırı","Radeon Chill","Radeon Boost"])}
+   ${sec("Senkronizasyon",["Dikey eşitlemeyi bekle","Enhanced Sync"])}
+   <div class="ft"><button class="btn" id="cp">Ayarları kopyala</button>${g.ek?'<button class="btn ghost" id="rm">Listeden çıkar</button>':""}<span class="status" id="cs" aria-live="polite"></span></div>
+   <pre id="cptxt" hidden></pre>`;
+  const txt=g.n+" · "+$("#res").selectedOptions[0].text+" "+mon.hz+" Hz\n"+S.map(s=>"- "+s.k+": "+s.v).join("\n");
+  $("#cp").onclick=async()=>{try{await navigator.clipboard.writeText(txt);$("#cs").textContent="Kopyalandı."}catch(e){const p=$("#cptxt");p.hidden=false;p.textContent=txt;const r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);$("#cs").textContent="Metin seçildi; Ctrl+C ile kopyala."}};
+  if(g.ek)$("#rm").onclick=()=>{extra=extra.filter(x=>x.n!==g.n);store.set("ek",extra);cur=G[0].n;list();show()};
+  list();
+}
+function saveMon(){mon={res:$("#res").value,hz:+$("#hz").value,fs:+$("#fs").value};store.set("mon",mon);show()}
+["#res","#hz","#fs"].forEach(s=>$(s).addEventListener("change",saveMon));
+$("#q").addEventListener("input",list);
+$("#chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;filt=b.dataset.f;chips();list()});
+$("#list").addEventListener("click",e=>{const b=e.target.closest("button[data-n]");if(!b)return;cur=b.dataset.n;show()});
+
+function addGame(g){extra=[g,...extra.filter(x=>x.n.toLocaleLowerCase("tr")!==g.n.toLocaleLowerCase("tr"))].slice(0,40);store.set("ek",extra);cur=g.n;filt="hepsi";$("#q").value="";chips();show()}
+$("#c_go").onclick=()=>{const n=$("#c_n").value.trim();if(!n){$("#c_n").focus();return}
+  addGame({n,t:$("#c_t").value,y:+$("#c_y").value,f:$("#c_f").value,fg:$("#c_fg").checked?1:0,al:$("#c_al").checked?1:0,c60:$("#c_60").checked?1:0,ac:$("#c_ac").value.trim(),src:"elle"})};
+
+// Claude'a sor (sample yeteneği)
+let sample=null,busy=false;
+const askOff=()=>{$("#askrow").hidden=true;$("#askp").textContent="Bu görünümde Claude'a sorma kullanılamıyor. Oyunun özelliklerini aşağıdan kendin girebilirsin.";$("#manual").open=true};
+(async()=>{try{sample=window.claude?await window.claude.use("sample"):null}catch(e){sample=null}if(!sample)askOff()})();
+const ERR={rate_limited:"Çok fazla istek; biraz sonra tekrar dene.",invalid_json:"Yanıt okunamadı; tekrar dene.",refused:"Bu istek yanıtlanmadı; oyun adını değiştir.",session_expired:"Oturumun sona ermiş; yeniden giriş yap.",empty_completion:"Boş yanıt geldi; tekrar dene."};
+async function ask(){
+  const name=$("#aq").value.trim();if(!name||busy)return;
+  if(!sample){askOff();return}
+  busy=true;$("#ab").disabled=true;$("#as").textContent="Claude oyunun özelliklerini araştırıyor…";
+  const prompt=`PC oyunu: "${name}". Bu oyunun teknik özelliklerini bildiğin kadarıyla ver. Sadece şu biçimde tek bir JSON nesnesi döndür, başka metin yazma:
+{"n":"oyunun resmi adı","t":"rek|koop|aks|yar|haf","y":1,"f":"fsr4|fsr31|fsr3|fsr2|fsr1|yok","fg":false,"al":false,"c60":false,"ac":"anti-cheat adı veya boş","no":"RX 9070 XT kullanıcısı için 1-2 cümlelik Türkçe not","emin":"yüksek|orta|düşük","bilinmiyor":false}
+Alanlar: t = rek (rekabetçi online PvP), koop (online ko-op PvE), aks (tek oyunculu aksiyon/RPG/macera), yar (yarış/simülasyon), haf (GPU'yu az yoran strateji/indie). y = RX 9070 XT için 1440p yüksek ayarda GPU yükü: 1 hafif (150+ FPS), 2 orta (90-150), 3 ağır (60-90), 4 çok ağır/ışın izleme (60 altı). f = oyunda bulunan en yeni AMD FSR sürümü (FSR 4 yerleşikse fsr4, FSR 3.1 ise fsr31). fg = oyun içinde FSR kare üretimi var mı. al = AMD Anti-Lag 2 desteği. c60 = motor 60 FPS ile kilitli mi. Emin olmadığın alanda temkinli seç ve "emin" alanını düşür. Oyunu tanımıyorsan "bilinmiyor": true yap.`;
+  try{
+    const r=await sample.json(prompt,{modelTier:"default",cache:{gcTime:86400000}});
+    if(!r||typeof r!=="object"||r.bilinmiyor){$("#as").textContent="Claude bu oyunu tanımadı. Özellikleri aşağıdan elle girebilirsin.";$("#manual").open=true;$("#c_n").value=name;return}
+    const ok=(v,a,d)=>a.includes(v)?v:d;
+    const g={n:String(r.n||name).slice(0,80),t:ok(r.t,Object.keys(T),"aks"),y:Math.max(1,Math.min(4,Math.round(+r.y)||2)),f:ok(r.f,Object.keys(F),"yok"),fg:r.fg?1:0,al:r.al?1:0,c60:r.c60?1:0,ac:String(r.ac||"").slice(0,40),no:String(r.no||"").slice(0,300),src:"claude"};
+    if(r.emin&&r.emin!=="yüksek")g.no=(g.no?g.no+" ":"")+"(Claude'un bu bilgiden eminliği: "+r.emin+". Oyun menüsündeki FSR seçeneklerini kontrol et.)";
+    addGame(g);$("#aq").value="";$("#as").textContent="Eklendi. Özellikler Claude tahminidir; oyun menüsüyle karşılaştır.";
+  }catch(e){
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(e&&e.code)){askOff();$("#c_n").value=name;}
+    else $("#as").textContent=ERR[e&&e.code]||"Bağlantı sorunu; tekrar dene.";
+  }finally{busy=false;$("#ab").disabled=false}
+}
+$("#ab").onclick=ask;$("#aq").addEventListener("keydown",e=>{if(e.key==="Enter")ask()});
+chips();show();
+</script>

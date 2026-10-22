@@ -1,0 +1,6 @@
+Id: OyunAyarRehberi_Export_Script
+Name: RigTune Export
+Author: RigTune
+Version: 1.1
+Module: OyunAyarRehberi.psm1
+Type: Script
