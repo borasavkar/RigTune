@@ -121,10 +121,23 @@ try {
 # Islemci ve bellek
 try {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-  $out.cpu = [ordered]@{ name = ($cpu.Name -replace '\s+', ' ').Trim(); cores = $cpu.NumberOfCores; threads = $cpu.NumberOfLogicalProcessors; maxMHz = $cpu.MaxClockSpeed }
+  $out.cpu = [ordered]@{ name = ($cpu.Name -replace '\s+', ' ').Trim(); cores = $cpu.NumberOfCores; threads = $cpu.NumberOfLogicalProcessors; maxMHz = $cpu.MaxClockSpeed; l3KB = $cpu.L3CacheSize }
   $mods = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object { [ordered]@{ size = [int64]$_.Capacity; speed = $_.Speed; configured = $_.ConfiguredClockSpeed; part = ("" + $_.PartNumber).Trim(); maker = ("" + $_.Manufacturer).Trim(); type = $_.SMBIOSMemoryType } })
   $out.ram = [ordered]@{ modules = $mods }
 } catch { $out.errors += 'cpu' }
+
+# Diskler: disk turu (MSFT_PhysicalDisk.MediaType 3 HDD, 4 SSD, 5 SCM), baglanti (MSFT_Disk.BusType 7 USB, 11 SATA, 17 NVMe ...),
+# surucu harfleri ve bos alan. Storage modulu yerine dogrudan CIM siniflari okunur (modul yuklemesi birkac saniye surer).
+# MSFT_Disk.Number ile MSFT_PhysicalDisk.DeviceId ayni diski gosterir; Depolama Alanlari gibi sanal disklerde eslesme olmaz, tur bilinmez.
+try {
+  $ns = 'root/Microsoft/Windows/Storage'
+  $media = @{}
+  foreach ($p in @(Get-CimInstance -Namespace $ns -ClassName MSFT_PhysicalDisk -ErrorAction Stop)) { $media["" + $p.DeviceId] = [int]$p.MediaType }
+  $disks = @(Get-CimInstance -Namespace $ns -ClassName MSFT_Disk | ForEach-Object { [ordered]@{ n = [int]$_.Number; name = ("" + $_.FriendlyName).Trim(); bus = [int]$_.BusType; media = $media["" + $_.Number]; size = [int64]$_.Size; boot = [bool]$_.IsBoot } })
+  $parts = @(Get-CimInstance -Namespace $ns -ClassName MSFT_Partition | Where-Object { [int]$_.DriveLetter -ne 0 } | ForEach-Object { [ordered]@{ disk = [int]$_.DiskNumber; letter = "" + [char]$_.DriveLetter } })
+  $vols = @(Get-CimInstance -Namespace $ns -ClassName MSFT_Volume | Where-Object { [int]$_.DriveLetter -ne 0 } | ForEach-Object { [ordered]@{ letter = "" + [char]$_.DriveLetter; label = $_.FileSystemLabel; fs = $_.FileSystem; type = [int]$_.DriveType; size = [int64]$_.Size; free = [int64]$_.SizeRemaining } })
+  $out.storage = [ordered]@{ disks = $disks; partitions = $parts; volumes = $vols; systemDrive = $env:SystemDrive }
+} catch { $out.errors += 'disks' }
 
 # Ekran kartlari
 $classRoot = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\'

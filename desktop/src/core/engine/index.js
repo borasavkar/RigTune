@@ -6,6 +6,7 @@ const { nvidia } = require('./nvidia');
 const { intel } = require('./intel');
 const { ingame } = require('./ingame');
 const { vendorGlobal, systemChecks } = require('./system');
+const { gameHardware } = require('./hardware');
 
 // Sürücü paneli olmayan platformlar (macOS, Linux, bilinmeyen kart): yalnızca oyun içi seçimler.
 function genericPick(g, c, L, need) {
@@ -22,7 +23,7 @@ function genericPick(g, c, L, need) {
   return { up, fg, cap: capPlan(g, c, fg, t('eng.limiter.generic')), latency: null, gameFGName: gameFG };
 }
 
-function tagsOf(g, c) {
+function tagsOf(g, c, hw) {
   const t = c.t;
   const out = [];
   out.push({ t: g.est.t ? t('eng.tags.est', { x: t('types.' + g.t) }) : t('types.' + g.t), k: g.est.t ? 'w' : '' });
@@ -35,7 +36,7 @@ function tagsOf(g, c) {
   if (g.c60) out.push({ t: t('eng.tags.lock60'), k: 'w' });
   if (g.ac) out.push({ t: t('eng.tags.ac', { ac: g.ac }), k: '' });
   if (g.eng) out.push({ t: g.eng, k: '' });
-  return out;
+  return out.concat(hw.tags);
 }
 
 function recommend(g, c) {
@@ -51,6 +52,9 @@ function recommend(g, c) {
   if (g.no) notes.push(g.no);
   if (c.vendor === 'amd' && g.noAmd) notes.push(g.noAmd);
   if (/Unreal Engine 5/.test(g.eng || '') && !/shader|gölgelendirici/i.test(notes.join(' '))) notes.push(t('eng.notes.ue5'));
+  // İşlemci, bellek ve disk notları (engine/hardware.js)
+  const hw = gameHardware(g, c, L, need, notes);
+  notes.push(...hw.notes);
   if (g.est.t || g.est.y) {
     const which = g.est.t && g.est.y ? 'ty' : g.est.t ? 't' : 'y';
     const src = g.est.t === 'mağaza' || g.est.y === 'mağaza' ? 'store' : 'guess';
@@ -60,7 +64,8 @@ function recommend(g, c) {
     L, over, need, perf: over ? t('levelOver') : t('levels')[L],
     driver: driver && { app: driver.app, path: driver.path, items: driver.items, groups: driver.groups, state: driver.state || null },
     ingame: ingame(g, c, L, need, pick, over),
-    notes, tags: tagsOf(g, c),
+    notes, tags: tagsOf(g, c, hw),
+    disk: hw.disk, hdd: hw.hdd,
   };
 }
 

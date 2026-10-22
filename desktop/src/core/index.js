@@ -9,6 +9,7 @@ const gamedb = require('./gamedb');
 const engine = require('./engine');
 const { fingerprint, diff, changeText } = require('./changes');
 const steamstore = require('./steamstore');
+const { LOW_FREE } = require('./engine/hardware');
 const { LOCALES, LANGS, resolveLang, translator } = require('../locales');
 
 const DEFAULTS = {
@@ -106,7 +107,9 @@ class Analyzer extends EventEmitter {
     if (!this.lib || this.fetchingMeta) return;
     this.fetchingMeta = true;
     try {
-      const todo = this.lib.games.filter(g => !gamedb.match(g) && !(this.settings.overrides[g.id] && this.settings.overrides[g.id].t) && (!this.metaCache[g.id] || Date.now() - this.metaCache[g.id].at > 30 * 864e5)).slice(0, 25);
+      // Önbellek 30 günde ya da kayıt biçimi değişince (steamstore.META_V) yenilenir.
+      const stale = m => !m || Date.now() - m.at > 30 * 864e5 || (!m.none && (m.v || 1) < steamstore.META_V);
+      const todo = this.lib.games.filter(g => !gamedb.match(g) && !(this.settings.overrides[g.id] && this.settings.overrides[g.id].t) && stale(this.metaCache[g.id])).slice(0, 25);
       for (const g of todo) {
         try { this.metaCache[g.id] = await steamstore.lookup(g); } catch { break; }
         await new Promise(r => setTimeout(r, 350));
@@ -146,11 +149,12 @@ class Analyzer extends EventEmitter {
     // Algılamadan gelen dilden bağımsız etiketler arayüz için çevrilir.
     pub.gpus = sys.gpus.map(g => ({ ...g, arch: archLabel(g, t) }));
     pub.displays = sys.displays.map(d => ({ ...d, connection: CONN.includes(d.connection) ? t('detect.conn.' + d.connection) : d.connection }));
+    if (sys.storage) pub.storage = { ...sys.storage, volumes: sys.storage.volumes.map(v => ({ ...v, low: v.size > 0 && v.free / v.size < LOW_FREE })) };
     this.state = {
       system: pub,
       primary: { gpuId: primary.gpu && primary.gpu.id, displayId: primary.display && primary.display.id },
       ctx: { resLabel: c.resLabel, hz: c.hz, vrr: c.vrr, vendor: c.vendor, goal: c.goal },
-      checks: engine.systemChecks(sys, c),
+      checks: engine.systemChecks(sys, c, games),
       global: engine.vendorGlobal(sys, c),
       games, catalog,
       libraries: { steam: this.lib.steamLibraries, autoFolders: this.lib.autoFolders, errors: this.lib.errors, sources: SOURCES },

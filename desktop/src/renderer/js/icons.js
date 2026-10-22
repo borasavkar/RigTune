@@ -11,6 +11,7 @@ export const I = {
   monitor: s('<rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/>'),
   gpu: s('<rect x="2.5" y="6" width="19" height="11" rx="2"/><circle cx="9" cy="11.5" r="3"/><path d="M15 9.5h3.5M15 12h3.5M15 14.5h3.5M5 17v3M8 17v3"/>'),
   cpu: s('<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/>'),
+  disk: s('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 13.5h18"/><path d="M6.5 16.3h5"/><circle cx="17" cy="16.3" r=".9" fill="currentColor"/>'),
   ram: s('<rect x="2.5" y="7" width="19" height="9" rx="1.5"/><path d="M6 10.5v2M10 10.5v2M14 10.5v2M18 10.5v2M5 16v3M19 16v3"/>'),
   windows: s('<path d="M3.5 5.5l7-1v7h-7zM12.5 4.2l8-1.2v8.5h-8zM3.5 13h7v7l-7-1zM12.5 13h8v8.5l-8-1.2z"/>'),
   check: s('<path d="M4.5 12.5l4.5 4.5 10.5-11"/>'),

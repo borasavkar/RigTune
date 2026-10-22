@@ -12,6 +12,8 @@ function fingerprint(sys, lib) {
     os: [sys.os.name, sys.os.displayVersion, sys.os.build ? `${sys.os.build}${sys.os.ubr ? '.' + sys.os.ubr : ''}` : sys.os.version].filter(Boolean).join(' '),
     cpu: sys.cpu && sys.cpu.name,
     ram: sys.ram ? `${sys.ram.totalGB} GB${sys.ram.configured ? ' · ' + sys.ram.configured + ' MT/s' : ''}` : null,
+    // Takılı diskler (ad → adet). USB, SD kart ve sanal diskler takılıp çıkarıldıkça bildirim olmasın diye sayılmaz.
+    disks: sys.storage ? (sys.storage.disks || []).filter(d => !['USB', 'SD', 'MMC', 'Virtual'].includes(d.bus)).reduce((o, d) => { const n = d.name || '?'; o[n] = (o[n] || 0) + 1; return o; }, {}) : null,
     gpus: Object.fromEntries(sys.gpus.filter(g => !g.virtual).map(g => [g.id, { name: g.name, driver: (g.driver && (g.driver.display || g.driver.version)) || '' }])),
     displays: Object.fromEntries(sys.displays.map(d => [d.id, { name: d.name, mode: `${d.current.w}×${d.current.h} @ ${Math.round(d.current.hz)} Hz`, hdr: !!(d.hdr && d.hdr.enabled) }])),
     apps,
@@ -32,6 +34,11 @@ function diff(a, b) {
   if (a.os !== b.os) add('software', 'os', { a: a.os, b: b.os });
   if (a.cpu !== b.cpu) add('hardware', 'cpu', { a: a.cpu, b: b.cpu });
   if (a.ram !== b.ram) add('hardware', 'ram', { a: a.ram, b: b.ram });
+  // Eski kayıtlarda disk bilgisi yok; ilk karşılaştırmada bütün diskler "yeni" görünmesin.
+  if (a.disks && b.disks) {
+    for (const [n, k] of Object.entries(b.disks)) if (k > (a.disks[n] || 0)) add('hardware', 'diskNew', { name: n });
+    for (const [n, k] of Object.entries(a.disks)) if (k > (b.disks[n] || 0)) add('hardware', 'diskRemoved', { name: n });
+  }
   for (const [id, g] of Object.entries(b.gpus)) {
     const p = a.gpus[id];
     if (!p) add('hardware', 'gpuNew', { name: g.name });

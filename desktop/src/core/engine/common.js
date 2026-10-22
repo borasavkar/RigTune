@@ -53,6 +53,10 @@ function buildProfile(game, db, probe, meta, ov, lang = 'tr') {
     rx: !!((db && db.rx) || (probe && probe.reflex)),
     xs: !!((db && db.xs) || (probe && probe.xess)), xsMajor: probe ? probe.xessMajor : null, xfg: !!(probe && probe.xessFG), xll: !!(probe && probe.xell),
     eng: probe ? probe.engine : null, rt: db && db.rt,
+    // İşlemciye bağlı oyun (1) ya da değil (0); boşsa türden ve motordan çıkarılır (engine/hardware.js). ow: açık dünya.
+    cpu: db && db.cpu != null ? db.cpu : null, ow: db && db.ow ? 1 : 0,
+    // Steam mağazasındaki sistem gereksinimi: bellek (GB) ve SSD şartı
+    req: meta && (meta.ramMin || meta.ramRec || meta.ssd) ? { ramMin: meta.ramMin || null, ramRec: meta.ramRec || null, ssd: meta.ssd || null } : null,
     ...notesOf(db, lang),
     est, inDb: !!db, probed: !!probe, ov,
   };

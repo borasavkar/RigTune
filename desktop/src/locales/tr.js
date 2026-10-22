@@ -48,6 +48,8 @@ module.exports = {
     gamesNew: 'Yeni oyun: {list}',
     gamesRemoved: 'Kaldırılan oyun: {list}',
     gamesUpdated: 'Güncellenen oyun: {list}',
+    diskNew: 'Yeni disk: {name}',
+    diskRemoved: 'Disk çıkarıldı: {name}',
     more: '{list} ve {n} oyun daha',
   },
 
@@ -84,9 +86,25 @@ module.exports = {
     },
     limiter: { generic: 'oyun içi sınırlayıcı', intel: 'Intel Graphics Software FPS sınırlayıcısı' },
     groups: { image: 'Görüntü ve ölçekleme', flow: 'Akıcılık ve gecikme', sync: 'Senkronizasyon' },
-    tags: { est: '{x} (tahmini)', fg: 'Kare üretimi: {list}', lock60: '60 FPS kilitli', ac: 'Hile koruması: {ac}' },
+    tags: { est: '{x} (tahmini)', fg: 'Kare üretimi: {list}', lock60: '60 FPS kilitli', ac: 'Hile koruması: {ac}', cpu: 'İşlemciye bağlı', disk: '{drive} · {kind}' },
+    disk: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD' },
     notes: {
       ue5: 'Unreal Engine 5 oyunu: ilk açılışlarda gölgelendirici derleme takılmaları normaldir ve sürücü ayarıyla çözülmez.',
+      // İşlemci, bellek ve disk notları (engine/hardware.js)
+      cpu: "Bu oyunda FPS'i çoğunlukla işlemci ({cpu}) belirler. Ölçekleyici ya da düşük grafik ayarı FPS'i belirgin artırmaz; grafik ayarlarını görüntü kalitesine göre seç.",
+      cpuShort: "Sınır işlemcide ({cpu}); ölçekleyici bu oyunda FPS'i artırmaz.",
+      cpuRk: "Ekran kartı bu oyunda rahat çalışır. FPS sınırsızken kare hızını çoğunlukla işlemci ({cpu}) belirler; grafik ayarlarını düşürmek bir noktadan sonra FPS'i artırmaz.",
+      ramMin: 'Bilgisayarda {have} GB bellek var; oyunun Steam sayfasındaki en düşük sistem gereksinimi {need} GB. Bellek yetmezse takılma ve uzun yüklemeler olur.',
+      ramRec: 'Bilgisayarda {have} GB bellek var; oyunun Steam sayfasında önerilen bellek {need} GB. Oyun sırasında tarayıcı gibi arka plan uygulamalarını kapat.',
+      hdd: {
+        base: 'Oyun sabit diskte (HDD, {drive}) yüklü. ',
+        req: "Oyunun Steam sayfasındaki sistem gereksinimi SSD istiyor; HDD'de uzun yüklemeler, takılmalar ve geç yüklenen dokular beklenir.",
+        rec: "Oyunun Steam sayfası SSD öneriyor; HDD'de yüklemeler uzar, oyun sırasında takılma olabilir.",
+        ue5: "Unreal Engine 5 oyunları oyun sırasında sürekli diskten yükleme yapar; HDD'de takılma ve geç yüklenen dokular görülebilir.",
+        ow: "Açık dünya oyunları dünyayı oyun sırasında diskten yükler; HDD'de takılma ve geç yüklenen dokular görülebilir.",
+        heavy: 'Ağır oyunlarda HDD yükleme sürelerini uzatır, sahne yüklenirken takılmaya yol açabilir.',
+        move: " Mümkünse oyunu bir SSD'ye taşı.",
+      },
       est: {
         t: { store: 'Bu oyunun türü Steam mağaza bilgisinden tahmin edildi.', guess: 'Bu oyunun türü tahmini.' },
         y: { store: 'Bu oyunun GPU yükü Steam mağaza bilgisinden tahmin edildi.', guess: 'Bu oyunun GPU yükü tahmini.' },
@@ -483,6 +501,14 @@ module.exports = {
     ramSlowWhy: "BIOS'ta {profile} profilini aç. (Etiket hızı parça numarasından ({part}) tahmin edildi.)",
     ramOk: 'Bellek {cur} MT/s{rated}',
     ramRated: ' (etiket hızında)',
+    // Diskler. Boş alan sınırı %10: Windows Gezgini sürücü çubuğunu bu sınırın altında kırmızı gösterir.
+    sysDiskLow: 'Sistem diskinde ({drive}) yer azaldı: %{pct} boş ({free} GB)',
+    sysDiskLowWhy: "Windows güncellemeleri, sayfa dosyası ve ekran kartı sürücüsünün gölgelendirici önbelleği bu diskte yer ister. Windows Gezgini de boş alan %10'un altına inince sürücüyü kırmızı gösterir. Ayarlar > Sistem > Depolama bölümünden gereksiz dosyaları temizle.",
+    sysDiskOk: 'Sistem diskinde ({drive}) yeterli boş alan var (%{pct})',
+    gameDiskLow: 'Oyun diskinde ({drive}) yer azaldı: %{pct} boş ({free} GB)',
+    gameDiskLowWhy: 'Bu diskte yüklü oyunlar ({n}): {list}. Oyun güncellemeleri indirilip kurulurken diskte ek boş alan gerekir; yer yetmezse güncelleme başlamaz.',
+    hddGames: "Sabit diskte (HDD) yüklü ve SSD'den fayda görecek oyunlar: {n}",
+    hddGamesWhy: '{list}. Ağır, açık dünya ve Unreal Engine 5 oyunlarında HDD yüklemeleri uzatır ve takılmaya yol açabilir. Ayrıntı oyunun notunda.',
   },
 
   // Ana süreç: tepsi menüsü, bildirim, klasör seçme penceresi
@@ -494,7 +520,8 @@ module.exports = {
 
   // Komut satırı (node src/cli.js)
   cli: {
-    gpu: 'Ekran kartı :', mon: 'Monitör     :', games: 'Oyun sayısı :', max: 'en fazla {n}', noVrr: 'VRR yok',
+    gpu: 'Ekran kartı :', cpu: 'İşlemci     :', ram: 'Bellek      :', disk: 'Disk        :', mon: 'Monitör     :', games: 'Oyun sayısı :',
+    free: '{free} GB boş', disks: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD', unknown: '?' }, max: 'en fazla {n}', noVrr: 'VRR yok',
     changes: 'Değişiklikler:', checks: 'Sistem kontrolleri:', ingame: 'Oyun içi', note: 'Not: ',
     now: 'şu an', unread: 'okunamadı', toChange: '{n} ayar değişecek',
   },
@@ -525,7 +552,11 @@ module.exports = {
       hdrOn: 'HDR açık', hdrOff: 'HDR kapalı', nits: ' · ~{n} nit', bit: '{n} bit',
       nowHz: 'şu an {n} Hz',
       noMon: 'Monitör bilgisi okunamadı.',
-      cpu: 'İşlemci', cores: '{c} çekirdek · {t} iş parçacığı',
+      cpu: 'İşlemci', cores: '{c} çekirdek · {t} iş parçacığı', l3: '{n} MB L3',
+      arch: '{arch} mimarisi', archYear: '{arch} mimarisi ({year})', archUnknown: 'Mimari veritabanında yok', x3d: '3D V-Cache',
+      disks: 'Diskler', noDisks: 'Disk bilgisi okunamadı.',
+      diskFree: '{free} boş · toplam {size}', diskGames: '{n} oyun', diskSystem: 'Sistem', diskRemovable: 'Çıkarılabilir', diskLow: 'Yer az',
+      diskKind: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD', unknown: 'Tür bilinmiyor' },
       ram: 'Bellek', modules: '{s} MT/s · {n} modül',
       os: 'İşletim sistemi', build: 'derleme {b}',
       checks: 'Kontroller', recent: 'Son değişiklikler',

@@ -48,6 +48,8 @@ module.exports = {
     gamesNew: 'New game: {list}',
     gamesRemoved: 'Removed game: {list}',
     gamesUpdated: 'Updated game: {list}',
+    diskNew: 'New disk: {name}',
+    diskRemoved: 'Disk removed: {name}',
     more: '{list} and {n} more',
   },
 
@@ -83,9 +85,25 @@ module.exports = {
     },
     limiter: { generic: 'the in-game limiter', intel: 'the Intel Graphics Software FPS limiter' },
     groups: { image: 'Image and upscaling', flow: 'Smoothness and latency', sync: 'Synchronization' },
-    tags: { est: '{x} (estimated)', fg: 'Frame generation: {list}', lock60: 'Locked to 60 FPS', ac: 'Anti-cheat: {ac}' },
+    tags: { est: '{x} (estimated)', fg: 'Frame generation: {list}', lock60: 'Locked to 60 FPS', ac: 'Anti-cheat: {ac}', cpu: 'CPU-bound', disk: '{drive} · {kind}' },
+    disk: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD' },
     notes: {
       ue5: 'Unreal Engine 5 game: shader compilation stutter in the first launches is normal and is not fixed by driver settings.',
+      // Processor, memory and disk notes (engine/hardware.js)
+      cpu: 'In this game FPS is mostly set by the processor ({cpu}). An upscaler or lower graphics settings will not raise FPS noticeably; choose graphics settings for image quality.',
+      cpuShort: 'The processor ({cpu}) is the limit; an upscaler does not raise FPS in this game.',
+      cpuRk: 'The graphics card has headroom in this game. With FPS uncapped, the frame rate is mostly set by the processor ({cpu}); past a point, lowering graphics settings does not raise FPS.',
+      ramMin: "This PC has {have} GB of memory; the minimum system requirement on the game's Steam page is {need} GB. When memory runs short, expect stutter and long loading times.",
+      ramRec: "This PC has {have} GB of memory; the game's Steam page recommends {need} GB. Close background apps such as the browser while playing.",
+      hdd: {
+        base: 'The game is installed on a hard disk drive (HDD, {drive}). ',
+        req: "The system requirements on the game's Steam page call for an SSD; on an HDD expect long loads, stutter and late-loading textures.",
+        rec: "The game's Steam page recommends an SSD; on an HDD loading takes longer and stutter can occur during play.",
+        ue5: 'Unreal Engine 5 games keep loading from disk during play; on an HDD stutter and late-loading textures can occur.',
+        ow: 'Open-world games load the world from disk during play; on an HDD stutter and late-loading textures can occur.',
+        heavy: 'In demanding games an HDD lengthens loading times and can cause stutter while scenes load.',
+        move: ' If possible, move the game to an SSD.',
+      },
       est: {
         t: { store: "This game's genre was estimated from Steam store data.", guess: "This game's genre is an estimate." },
         y: { store: "This game's GPU load was estimated from Steam store data.", guess: "This game's GPU load is an estimate." },
@@ -473,6 +491,14 @@ module.exports = {
     ramSlowWhy: 'Turn on the {profile} profile in the BIOS. (The rated speed was estimated from the part number ({part}).)',
     ramOk: 'Memory {cur} MT/s{rated}',
     ramRated: ' (at rated speed)',
+    // Disks. The 10% free-space limit: File Explorer shows a drive bar in red below it.
+    sysDiskLow: 'System drive ({drive}) is running out of space: {pct}% free ({free} GB)',
+    sysDiskLowWhy: "Windows updates, the page file and the graphics driver's shader cache need space on this drive. File Explorer also shows a drive in red when free space drops below 10%. Clean up unneeded files in Settings > System > Storage.",
+    sysDiskOk: 'System drive ({drive}) has enough free space ({pct}%)',
+    gameDiskLow: 'Game drive ({drive}) is running out of space: {pct}% free ({free} GB)',
+    gameDiskLowWhy: 'Games installed on this drive ({n}): {list}. Game updates need extra free space while they download and install; if there is not enough, the update will not start.',
+    hddGames: 'Games on a hard disk drive (HDD) that would benefit from an SSD: {n}',
+    hddGamesWhy: "{list}. In demanding, open-world and Unreal Engine 5 games an HDD lengthens loading and can cause stutter. See each game's notes for details.",
   },
 
   main: {
@@ -482,7 +508,8 @@ module.exports = {
   },
 
   cli: {
-    gpu: 'GPU         :', mon: 'Monitor     :', games: 'Games       :', max: 'max {n}', noVrr: 'no VRR',
+    gpu: 'GPU         :', cpu: 'CPU         :', ram: 'Memory      :', disk: 'Disk        :', mon: 'Monitor     :', games: 'Games       :',
+    free: '{free} GB free', disks: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD', unknown: '?' }, max: 'max {n}', noVrr: 'no VRR',
     changes: 'Changes:', checks: 'System checks:', ingame: 'In game', note: 'Note: ',
     now: 'now', unread: 'not readable', toChange: '{n} to change',
   },
@@ -512,7 +539,11 @@ module.exports = {
       hdrOn: 'HDR on', hdrOff: 'HDR off', nits: ' · ~{n} nits', bit: '{n}-bit',
       nowHz: 'now {n} Hz',
       noMon: 'Monitor information could not be read.',
-      cpu: 'Processor', cores: '{c} cores · {t} threads',
+      cpu: 'Processor', cores: '{c} cores · {t} threads', l3: '{n} MB L3',
+      arch: '{arch} architecture', archYear: '{arch} architecture ({year})', archUnknown: 'Architecture not in the database', x3d: '3D V-Cache',
+      disks: 'Disks', noDisks: 'Disk information could not be read.',
+      diskFree: '{free} free of {size}', diskGames: 'Games: {n}', diskSystem: 'System', diskRemovable: 'Removable', diskLow: 'Low space',
+      diskKind: { nvme: 'NVMe SSD', ssd: 'SSD', hdd: 'HDD', unknown: 'Type unknown' },
       ram: 'Memory', modules: '{s} MT/s · modules: {n}',
       os: 'Operating system', build: 'build {b}',
       checks: 'Checks', recent: 'Recent changes',

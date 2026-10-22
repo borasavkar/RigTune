@@ -7,8 +7,9 @@ const { exec, runPowerShell, readText, isDir } = require('../util');
 const { parseEdid } = require('./edid');
 const { readAmdSettings } = require('./amd-settings');
 const gpudb = require('../gpudb');
+const cpudb = require('../cpudb');
 
-const TECH = { 0: 'VGA', 4: 'DVI', 5: 'HDMI', 6: 'LVDS', 10: 'DisplayPort', 11: 'eDP', 13: 'UDI', 15: 'Miracast', 16: 'wireless', 2147483648: 'internal' }; // eDP, UDI, wireless, internal arayüzde çevrilir
+const TECH ={ 0: 'VGA', 4: 'DVI', 5: 'HDMI', 6: 'LVDS', 10: 'DisplayPort', 11: 'eDP', 13: 'UDI', 15: 'Miracast', 16: 'wireless', 2147483648: 'internal' }; // eDP, UDI, wireless, internal arayüzde çevrilir
 
 // ---------- Windows ----------
 async function rawWindows() {
@@ -63,6 +64,78 @@ function ramInfo(mods) {
   return { totalGB: Math.round(total / 2 ** 30), configured, rated, type, modules: mods.length, maker: mods[0] && mods[0].maker, part: mods[0] && mods[0].part };
 }
 
+// İşlemci: algılanan ham bilgi + veritabanındaki mimari sınıfı (cpudb.js).
+function cpuInfo(raw) {
+  raw = raw || {};
+  const info = cpudb.lookup(raw.name);
+  return { ...raw, l3MB: raw.l3KB ? Math.round(raw.l3KB / 1024) : null, short: info.short, vendor: info.vendor, arch: info.arch, archKey: info.archKey, year: info.year, x3d: info.x3d, known: info.known };
+}
+
+// Disklerin ortak biçimi: { disks: [{ name, bus, kind, size }], volumes: [{ mount, letter, label, size, free, system, removable, disk, kind, bus }] }
+// kind: 'nvme' | 'ssd' | 'hdd' | null (bilinmiyor). Boyutlar bayt.
+const BUS = { 1: 'SCSI', 3: 'ATA', 6: 'Fibre Channel', 7: 'USB', 8: 'RAID', 9: 'iSCSI', 10: 'SAS', 11: 'SATA', 12: 'SD', 13: 'MMC', 14: 'Virtual', 15: 'Virtual', 16: 'Storage Spaces', 17: 'NVMe', 18: 'SCM', 19: 'UFS' };
+// NVMe bağlantılı disk SSD'dir; diğerlerinde Windows'un bildirdiği MediaType (3 HDD, 4 SSD, 5 SCM) kullanılır.
+function diskKind(media, bus) {
+  if (bus === 17) return 'nvme';
+  if (media === 4 || media === 5) return 'ssd';
+  if (media === 3) return 'hdd';
+  return null;
+}
+
+function storageFromWin(st) {
+  if (!st) return null;
+  const disks = (st.disks || []).map(d => ({ n: d.n, name: d.name || null, bus: BUS[d.bus] || null, kind: diskKind(d.media, d.bus), size: d.size || null }));
+  const sys = String(st.systemDrive || 'C:').charAt(0).toUpperCase();
+  // MSFT_Volume.DriveType: 2 çıkarılabilir, 3 sabit, 4 ağ, 5 CD/DVD. Optik sürücüler ve boyutu olmayan birimler atlanır.
+  const volumes = (st.volumes || []).filter(v => v.letter && v.size > 0 && v.type !== 5).map(v => {
+    const nums = (st.partitions || []).filter(p => p.letter === v.letter).map(p => p.disk);
+    const own = disks.filter(d => nums.includes(d.n));
+    const d = own.length === 1 ? own[0] : null; // birden çok diske yayılan birimde disk türü belirsiz
+    return { mount: v.letter + ':\\', letter: v.letter, label: v.label || '', size: v.size, free: v.free, system: v.letter === sys, removable: v.type === 2, disk: d && d.name, kind: d ? d.kind : null, bus: d ? d.bus : null };
+  }).sort((a, b) => a.letter.localeCompare(b.letter));
+  return { disks: disks.map(({ n, ...d }) => d), volumes };
+}
+
+// macOS ve Linux: bağlama noktaları ve boş alan. Linux'ta disk türü /sys/class/block/<aygıt>/queue/rotational dosyasından
+// (1 dönen disk); macOS'ta tür okunmaz. Bu iki platformda denenmedi.
+function storageGeneric() {
+  if (typeof fs.statfsSync !== 'function') return null;
+  const mounts = [];
+  if (process.platform === 'linux') {
+    for (const line of (readText('/proc/mounts') || '').split('\n')) {
+      const [dev, mnt] = line.split(' ');
+      if (!dev || !dev.startsWith('/dev/') || dev.startsWith('/dev/loop') || !mnt || /^\/(boot|snap)(\/|$)/.test(mnt)) continue;
+      mounts.push({ dev, mount: mnt.replace(/\\040/g, ' ') });
+    }
+  } else {
+    mounts.push({ mount: '/' });
+    try { for (const n of fs.readdirSync('/Volumes')) mounts.push({ mount: path.join('/Volumes', n) }); } catch { /* yok */ }
+  }
+  const rotational = dev => {
+    try {
+      const name = path.basename(fs.realpathSync(dev));
+      let dir = fs.realpathSync(path.join('/sys/class/block', name));
+      const slaves = path.join(dir, 'slaves');
+      if (isDir(slaves)) { const s = fs.readdirSync(slaves)[0]; if (s) dir = fs.realpathSync(path.join(slaves, s)); }
+      const r = readText(path.join(dir, 'queue', 'rotational')) || readText(path.join(path.dirname(dir), 'queue', 'rotational'));
+      if (r == null) return null;
+      return r.trim() === '1' ? 'hdd' : /nvme/.test(dir) ? 'nvme' : 'ssd';
+    } catch { return null; }
+  };
+  const seen = new Set(), volumes = [];
+  for (const m of mounts) {
+    let real = m.mount;
+    try { real = fs.realpathSync(m.mount); } catch { continue; }
+    if (seen.has(real) || (m.dev && seen.has(m.dev))) continue;
+    seen.add(real); if (m.dev) seen.add(m.dev);
+    let s;
+    try { s = fs.statfsSync(m.mount); } catch { continue; }
+    const kind = m.dev ? rotational(m.dev) : null;
+    volumes.push({ mount: m.mount, letter: null, label: m.mount === '/' ? '/' : path.basename(m.mount), size: s.blocks * s.bsize, free: s.bavail * s.bsize, system: m.mount === '/', removable: false, disk: m.dev ? path.basename(m.dev) : null, kind, bus: kind === 'nvme' ? 'NVMe' : null });
+  }
+  return { disks: [], volumes: volumes.filter(v => v.size > 0) };
+}
+
 function displayFromWin(d) {
   const e = parseEdid(d.edid);
   const modes = (d.modes || []).map(s => { const m = /^(\d+)x(\d+)@(\d+)$/.exec(s); return m ? { w: +m[1], h: +m[2], hz: +m[3] } : null; }).filter(Boolean);
@@ -114,8 +187,9 @@ async function detectWindows() {
   return {
     platform: 'win32',
     os: sys.os ? { name: sys.os.name, version: sys.os.version, build: sys.os.build, ubr: sys.os.ubr, displayVersion: sys.os.displayVersion, computer: sys.os.computer } : { name: 'Windows' },
-    cpu: sys.cpu || { name: os.cpus()[0] && os.cpus()[0].model },
+    cpu: cpuInfo(sys.cpu || { name: os.cpus()[0] && os.cpus()[0].model }),
     ram: ramInfo(sys.ram && sys.ram.modules),
+    storage: storageFromWin(sys.storage),
     gpus,
     displays: (sys.displays || []).map(displayFromWin),
     apps: appsFromUninstall(sys.uninstall),
@@ -162,8 +236,8 @@ async function detectMac() {
     }
   }
   return {
-    platform: 'darwin', os: { name: sw.os_version || 'macOS' }, cpu: { name: hw.chip_type || hw.cpu_type || (os.cpus()[0] || {}).model, threads: os.cpus().length },
-    ram: { totalGB: Math.round(os.totalmem() / 2 ** 30) }, gpus, displays, apps: {}, winSettings: null, errors: [], _uninstall: [], _hints: {},
+    platform: 'darwin', os: { name: sw.os_version || 'macOS' }, cpu: cpuInfo({ name: hw.chip_type || hw.cpu_type || (os.cpus()[0] || {}).model, threads: os.cpus().length }),
+    ram: { totalGB: Math.round(os.totalmem() / 2 ** 30) }, storage: storageGeneric(), gpus, displays, apps: {}, winSettings: null, errors: [], _uninstall: [], _hints: {},
   };
 }
 
@@ -209,8 +283,8 @@ async function detectLinux() {
   } catch { /* yok */ }
   const osr = readText('/etc/os-release') || '';
   return {
-    platform: 'linux', os: { name: ((osr.match(/^PRETTY_NAME="?([^"\n]*)/m) || [])[1]) || 'Linux', version: os.release() }, cpu: { name: (os.cpus()[0] || {}).model, threads: os.cpus().length },
-    ram: { totalGB: Math.round(os.totalmem() / 2 ** 30) }, gpus, displays, apps: {}, winSettings: null, errors: [], _uninstall: [], _hints: {},
+    platform: 'linux', os: { name: ((osr.match(/^PRETTY_NAME="?([^"\n]*)/m) || [])[1]) || 'Linux', version: os.release() }, cpu: cpuInfo({ name: (os.cpus()[0] || {}).model, threads: os.cpus().length }),
+    ram: { totalGB: Math.round(os.totalmem() / 2 ** 30) }, storage: storageGeneric(), gpus, displays, apps: {}, winSettings: null, errors: [], _uninstall: [], _hints: {},
   };
 }
 
@@ -231,4 +305,4 @@ function pickPrimary(sys, settings) {
   return { gpu, display };
 }
 
-module.exports = { detectSystem, pickPrimary, nvidiaDriver, ramInfo, readAmdSettings };
+module.exports = { detectSystem, pickPrimary, nvidiaDriver, ramInfo, cpuInfo, storageFromWin, readAmdSettings };

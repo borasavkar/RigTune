@@ -20,6 +20,7 @@ RX 9070 XT için oyun bazlı AMD Adrenalin ayar önerileri veren, tek dosyalık 
 - Ana monitör (17 Ekim 2026'da EDID'den okundu): AOC CU34G2XP, 34", 3440×1440, DisplayPort, en fazla 180 Hz, FreeSync 2.1 aralığı 48–180 Hz, HDR10 (tepe yaklaşık 418 nit, HDR400 sınıfı), 10 bit. Windows'ta 144 Hz'de çalışıyordu ve HDR açıktı.
 - İkinci monitör: ASUS VW193D, 1440×900, 60 Hz, DVI.
 - Bellek: 2 × 16 GB DDR5, 6000 MT/s (EXPO açık).
+- Diskler (22 Ekim 2026'da uygulamayla okundu): C: NVMe SSD (sistem), D: SATA SSD, G: NVMe SSD, E: ve F: HDD. O gün yüklü oyunların hepsi SSD'lerdeydi.
 - AMD Software 26.10.1 (22 Ekim 2026'da güncellendi; önceki 26.8.1). Sürücü 32.0.32015.7029, sürücü tarihi 2026-10-18, iç sürüm 26.20.15.07.
 - Tek dosyalık sayfa (index.html) başlangıçta örnek olarak 1440p / 165 Hz / FreeSync açık gösterir; masaüstü uygulaması monitörü kendisi okur.
 
@@ -133,21 +134,23 @@ Not: Oyunların özellik tabloları kural tabanlı tahmindir, ölçüm değildir
 
 | Dosya | Görevi |
 |---|---|
-| `src/core/detect/windows-system.ps1` | GPU (kayıt defteri, VRAM, AMD paket sürümü), monitörler (DisplayConfig + GDI kipleri + EDID + HDR), kaldırma kayıtları, Windows oyun ayarları |
+| `src/core/detect/windows-system.ps1` | GPU (kayıt defteri, VRAM, AMD paket sürümü), işlemci (L3 dahil), bellek modülleri, diskler (CIM `MSFT_Disk`, `MSFT_PhysicalDisk`, `MSFT_Partition`, `MSFT_Volume`), monitörler (DisplayConfig + GDI kipleri + EDID + HDR), kaldırma kayıtları, Windows oyun ayarları |
 | `src/core/detect/windows-libs.ps1` | Steam yolu, GOG/Ubisoft/EA kayıtları, sürücüler ve .GamingRoot, Xbox paketleri |
 | `src/core/detect/edid.js` | EDID çözücü (CTA-861, DisplayID; FreeSync/HDMI VRR/Adaptive-Sync, HDR parlaklığı) |
 | `src/core/detect/amd-settings.js` | Adrenalin'in kayıtlı ayarlarını okur (oyun profilleri, genel ayarlar); bkz. "Adrenalin ayarlarını okuma" |
 | `src/core/detect/index.js` | Platform algılama (Windows/macOS/Linux), ortak biçim, oyun kartı/monitör seçimi |
 | `src/core/gpudb.js` | Model → mimari, yaklaşık güç sınıfı (RX 9070 XT = 100), özellikler |
+| `src/core/cpudb.js` | İşlemci modeli → mimari, mimarinin ilk çıktığı yıl, 3D V-Cache (X3D), kısa ad. Puan yok (bkz. "İşlemci, bellek ve disk analizi") |
 | `src/core/libraries/*` | Başlatıcı tarayıcıları, VDF çözücü, klasör ve Playnite tarayıcısı |
 | `src/core/probe.js` | Oyun klasörü incelemesi ve PE dosya sürümü okuma |
-| `src/core/gamedb.js` | Oyun veritabanı (eski `G` dizisi + yeni alanlar). `no` genel not, `noAmd` yalnızca AMD'de gösterilen not, `en: { no, noAmd, tips }` İngilizce karşılıkları |
+| `src/core/gamedb.js` | Oyun veritabanı (eski `G` dizisi + yeni alanlar). `no` genel not, `noAmd` yalnızca AMD'de gösterilen not, `en: { no, noAmd, tips }` İngilizce karşılıkları, `ow` açık dünya, `cpu` işlemciye bağlı (1) ya da değil (0) |
 | `src/core/engine/common.js` | Profil birleştirme, yük seviyesi, ölçekleme ihtiyacı, kare üretimi ve FPS sınırı planı |
 | `src/core/engine/amd.js` | Eski `rec()` fonksiyonunun taşınmış hâli |
 | `src/core/engine/nvidia.js`, `intel.js` | NVIDIA App ve Intel Graphics Software kuralları |
 | `src/core/engine/ingame.js`, `system.js` | Oyun içi ayarlar; genel ayarlar ve sistem kontrolleri |
+| `src/core/engine/hardware.js` | İşlemci, bellek ve disk: oyun notları, disk etiketi, disk kontrolleri, oyun klasörü → birim eşlemesi (`volumeOf`) |
 | `src/core/changes.js` | Parmak izi ve değişiklik farkı |
-| `src/core/steamstore.js` | Veritabanında olmayan oyunlar için Steam mağaza bilgisi (ayarlardan kapatılabilir) |
+| `src/core/steamstore.js` | Veritabanında olmayan oyunlar için Steam mağaza bilgisi: tür, yük, en düşük ve önerilen bellek, SSD şartı (`parseReq`). Ayarlardan kapatılabilir |
 | `src/main/main.js` | Pencere (Windows 11'de akrilik), tepsi, izleme (aralıklı, monitör, uyku), bildirim, `oar://` protokolü |
 | `src/renderer/*` | Cam arayüz: Özet, Oyunlar, Genel, Geçmiş, Ayarlar |
 | `src/locales/tr.js`, `en.js`, `index.js` | Bütün metinler (motor, sistem kontrolleri, değişiklik geçmişi, tepsi/bildirim, komut satırı, arayüz) ve çevirmen `translator(dil)` |
@@ -190,6 +193,21 @@ Bora'nın isteği: uygulama Adrenalin'deki mevcut ayarları okusun, değiştiril
 - **Test fikstürü:** `test/fixtures/amd-user.blb` gerçek dosyanın kopyası; `E:\A_Games\...` altındaki iki kişisel oyun klasörü yolu aynı uzunlukta `D:\Games\GameA\xxx` biçiminde sahte yollarla değiştirildi.
 - Ekran görüntüsü aracına `OAR_SHOT_SCROLL=1` eklendi: katlı listeler açılır, sayfanın altı `_alt.png` olarak alınır.
 
+### İşlemci, bellek ve disk analizi (22 Ekim 2026)
+
+Bora'nın sorusu üzerine eklendi: önceden yalnızca ekran kartı ve monitör önerilere katılıyordu. Uygulama yine yalnızca okur.
+
+- **Diskler:** `windows-system.ps1` Storage modülü yerine doğrudan CIM sınıflarını okur (modül yüklemesi birkaç saniye sürüyordu; CIM yaklaşık 0,3 sn). Tür: `BusType` 17 (NVMe) ise `nvme`, değilse `MediaType` 4/5 `ssd`, 3 `hdd`, diğerleri bilinmiyor. `MSFT_Disk.Number` = `MSFT_PhysicalDisk.DeviceId`; Depolama Alanları gibi sanal disklerde eşleşme olmaz, tür bilinmez. Ortak biçim `sys.storage = { disks, volumes }` (`detect/index.js` > `storageFromWin`). macOS ve Linux için `storageGeneric` (statfs, Linux'ta `queue/rotational`) yazıldı, denenmedi.
+- **Oyun → disk:** `engine/hardware.js` > `volumeOf` oyun klasörünü en uzun eşleşen bağlama noktasına (Windows'ta sürücü harfi) bağlar. Oyun ayrıntısında `E: · HDD` gibi etiket, öneride `rec.disk` ve `rec.hdd`.
+- **HDD notu:** oyun HDD'deyse ve GPU yükü 3+ (ağır), `ow: 1` (açık dünya), Unreal Engine 5 ya da Steam gereksinimi SSD istiyorsa (`req`/`rec`) not verilir. Hafif oyunda not yok.
+- **Boş alan:** sistem diskinde ve oyun bulunan diğer disklerde boş alan %10'un altındaysa uyarı. Kaynak: Windows Gezgini sürücü çubuğunu bu sınırın altında kırmızı gösterir. HDD'deki ağır oyunlar ayrıca Özet'te bilgi olarak listelenir.
+- **İşlemci:** `cpudb.js` mimari sınıfını verir (ör. Zen 5, 2024). Sayısal puan **bilerek yok**: işlemcilerin oyun performansını karşılaştıran ve kaynağı gösterilebilen bir tablo bulunamadı (TechPowerUp erişimi engelledi). Öneri kurallarında işlemci eşiği kullanılmıyor.
+- **İşlemciye bağlı oyun notu:** `cpu: 1`, `haf` türü ya da Paradox (Clausewitz/Jomini) / TaleWorlds motoru; `cpu: 0` dışarıda tutar (Hades II). Ölçekleyici gerekmiyorsa "FPS'i çoğunlukla işlemci belirler; ölçekleyici artırmaz" notu. Oyunun kendi notu işlemciden söz ediyorsa kısa sürüm.
+- **Rekabetçi oyunda işlemci notu:** ekran kartı rahatsa (yük seviyesi 0–1) ve monitör 120 Hz ve üstüyse "FPS sınırsızken kare hızını çoğunlukla işlemci belirler". 120 Hz sınırı kare üretimi planındaki yüksek yenileme sınırıyla aynı.
+- **Bellek kapasitesi:** yalnızca Steam mağaza bilgisi olan (veritabanında olmayan) oyunlarda, en düşük ya da önerilen gereksinim toplam bellekten fazlaysa not. Mağaza önbelleğinin biçim sürümü `META_V = 2`; eski kayıtlar bir kez yeniden alınır.
+- **Değişiklik geçmişi:** disk takılıp çıkarılması izlenir (`diskNew`, `diskRemoved`). USB, SD ve sanal diskler sayılmaz. Eski anlık görüntülerde disk bilgisi yoksa karşılaştırılmaz.
+- **Arayüz:** Özet'te işlemci kartına mimari, L3 ve 3D V-Cache; ayrı Diskler kartı (birim, tür, doluluk çubuğu, boş alan, o diskteki oyun sayısı). Komut satırı işlemci, bellek ve diskleri de yazar.
+
 ### Eski sayfadan taşınırken değişen kurallar
 
 - FSR 4 yükseltmesinin adı Adrenalin'de artık "AMD FSR Upscaling". RX 9000'de ML kare üretimi için "AMD FSR Frame Generation" satırı eklendi (oyunda FSR 3.1.4+ gerekir).
@@ -211,3 +229,6 @@ Bora'nın isteği: uygulama Adrenalin'deki mevcut ayarları okusun, değiştiril
 7. RSR'nin (genel ve oyun profili) ve genel AFMF'nin nerede saklandığını bul. Yöntem: Adrenalin'de tek bir anahtarı değiştirip `User.blb`, `GExDb.blb` ve sürücü kayıt defteri anahtarını önce/sonra karşılaştırmak. Bora'nın onayı olmadan ayar değiştirilmez.
 8. ~~GitHub deposu~~ (22 Ekim 2026'da açıldı ve herkese açık yapıldı; öncesinde kişisel bilgi taraması yapıldı, sorun çıkmadı).
 9. Playnite eklentisinin 1.1 sürümünü `%APPDATA%\Playnite\Extensions\OyunAyarRehberi_Export\` klasörüne kopyala (BOM'lu kalmalı) ve Playnite'ı yeniden başlat. Bora'ya sorulmadan yapılmaz; yapılmasa da uygulama eski klasördeki listeyi okumaya devam eder.
+10. İşlemci için sayısal oyun sınıfı (gpudb'deki gibi puan) ancak kaynağı gösterilebilen bir karşılaştırma tablosuyla eklenir; "işlemci ekran kartını sınırlıyor" kontrolü de bir eşik ister. İkisi de Bora'nın onayı ve kaynağı olmadan yapılmaz.
+11. Oyun klasörü incelemesinde motor yanlış çıkabiliyor: Age of Empires II DE "Godot", Bannerlord "Unity 2021.3" olarak görünüyor (22 Ekim 2026). `probe.js` motor tespiti gözden geçirilmeli.
+12. Steam mağazasında adla arama yanlış oyunu bulabiliyor: Epic'teki RAVEN2, "Mystery Solitaire. The Black Raven 2" ile eşleşti. Tür, yük ve bellek notu bu yanlış bilgiden üretilir; adla eşleşmenin doğrulanması gerekir.

@@ -27,6 +27,12 @@ const flag = (...ks) => ks.some(k => args.includes(k));
   const gpu = s.system.gpus.find(g => g.id === s.primary.gpuId);
   const d = s.system.displays.find(x => x.id === s.primary.displayId);
   console.log(`\n${t('cli.gpu')} ${gpu ? `${gpu.name} · ${gpu.arch} · ${gpu.vramGB || '?'} GB` : '-'}`);
+  const cpu = s.system.cpu || {}, ram = s.system.ram || {};
+  console.log(`${t('cli.cpu')} ${[cpu.name, cpu.arch && (cpu.year ? `${cpu.arch} (${cpu.year})` : cpu.arch), cpu.cores && `${cpu.cores}C/${cpu.threads}T`].filter(Boolean).join(' · ') || '-'}`);
+  console.log(`${t('cli.ram')} ${ram.totalGB ? [`${ram.totalGB} GB`, ram.type, ram.configured && `${ram.configured} MT/s`].filter(Boolean).join(' · ') : '-'}`);
+  for (const v of (s.system.storage && s.system.storage.volumes) || []) {
+    console.log(`${t('cli.disk')} ${v.letter ? v.letter + ':' : v.mount} ${t('cli.disks.' + (v.kind || 'unknown'))} · ${t('cli.free', { free: Math.round(v.free / 2 ** 30) })} / ${Math.round(v.size / 2 ** 30)} GB${v.disk ? ` · ${v.disk}` : ''}${v.low ? ' !' : ''}`);
+  }
   console.log(`${t('cli.mon')} ${d ? `${d.name} · ${s.ctx.resLabel} · ${s.ctx.hz} Hz (${t('cli.max', { n: d.maxHz })}) · ${d.vrr ? d.vrr.kind : t('cli.noVrr')}` : '-'}`);
   console.log(`${t('cli.games')} ${s.games.length}`);
   if (r.items.length) { console.log('\n' + t('cli.changes')); for (const i of r.items) console.log('  • ' + i.text); }

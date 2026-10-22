@@ -146,6 +146,32 @@ function gauge(cur, max) {
     <div class="val"><b>${Math.round(cur)}</b><small>/ ${max} Hz</small></div></div>`;
 }
 
+// İşlemci kartı: ad, çekirdek/iş parçacığı, L3 önbellek ve veritabanındaki mimari sınıfı (core/cpudb.js).
+function cpuCard(cpu) {
+  cpu = cpu || {};
+  const sub = [cpu.cores ? t('ov.cores', { c: cpu.cores, t: cpu.threads }) : null, cpu.l3MB ? t('ov.l3', { n: cpu.l3MB }) : null].filter(Boolean).join(' · ');
+  const arch = cpu.arch ? t(cpu.year ? 'ov.archYear' : 'ov.arch', { arch: cpu.arch, year: cpu.year }) : t('ov.archUnknown');
+  return `<section class="glass card"><div class="mini-h">${I.cpu}${esc(t('ov.cpu'))}</div><b class="mini-b">${esc(cpu.name || '—')}</b><span class="mini-s">${esc(sub)}</span>
+    <div class="mini-tags"><span class="chip">${esc(arch)}</span>${cpu.x3d ? `<span class="chip a">${esc(t('ov.x3d'))}</span>` : ''}</div></section>`;
+}
+
+// Disk kartı: her birim için tür, boş alan ve o birimdeki oyun sayısı. low: boş alan %10'un altında (engine/hardware.js).
+const fmtSize = b => { const g = (b || 0) / 2 ** 30; return g >= 1000 ? `${(g / 1024).toLocaleString(L.locale, { maximumFractionDigits: 1 })} TB` : `${Math.round(g)} GB`; };
+function diskCard() {
+  const vols = (S.system.storage && S.system.storage.volumes) || [];
+  const count = {};
+  for (const g of S.games) if (g.rec.disk) count[g.rec.disk.mount] = (count[g.rec.disk.mount] || 0) + 1;
+  const row = v => {
+    const used = v.size ? Math.round((1 - v.free / v.size) * 100) : 0, n = count[v.mount] || 0;
+    return `<div class="vol${v.low ? ' low' : ''}"><div class="letter">${esc(v.letter ? v.letter + ':' : v.label || v.mount)}</div>
+      <div style="min-width:0"><div class="vname"><b>${esc(v.label || v.disk || v.mount)}</b>${v.label && v.disk ? `<span>${esc(v.disk)}</span>` : ''}</div>
+        <div class="vbar"><i style="width:${used}%"></i></div>
+        <div class="vsub">${esc(t('ov.diskFree', { free: fmtSize(v.free), size: fmtSize(v.size) }))}${n ? ` · ${esc(t('ov.diskGames', { n }))}` : ''}</div></div>
+      <div class="vtags"><span class="chip${v.kind && v.kind !== 'hdd' ? ' ok' : ''}">${esc(t('ov.diskKind.' + (v.kind || 'unknown')))}</span>${v.system ? `<span class="chip a">${esc(t('ov.diskSystem'))}</span>` : ''}${v.removable ? `<span class="chip">${esc(t('ov.diskRemovable'))}</span>` : ''}${v.low ? `<span class="chip w">${esc(t('ov.diskLow'))}</span>` : ''}</div></div>`;
+  };
+  return `<section class="glass card" style="margin-top:16px"><div class="mini-h">${I.disk}${esc(t('ov.disks'))}</div>${vols.length ? `<div class="vols">${vols.map(row).join('')}</div>` : `<p class="mini-s" style="margin:10px 0 0">${esc(t('ov.noDisks'))}</p>`}</section>`;
+}
+
 function checkCard(c) {
   const ic = c.level === 'warn' ? I.alert : c.level === 'ok' ? I.check : I.info;
   return `<div class="glass flat check ${c.level}"><div class="ic">${ic}</div><div><b>${esc(c.title)}</b>${c.detail ? `<p>${esc(c.detail)}</p>` : ''}</div></div>`;
@@ -194,10 +220,11 @@ function overview() {
     </section>
   </div>
   <div class="grid three" style="margin-top:16px">
-    <section class="glass card"><div class="mini-h">${I.cpu}${esc(t('ov.cpu'))}</div><b class="mini-b">${esc(sys.cpu && sys.cpu.name)}</b><span class="mini-s">${esc(sys.cpu && sys.cpu.cores ? t('ov.cores', { c: sys.cpu.cores, t: sys.cpu.threads }) : '')}</span></section>
+    ${cpuCard(sys.cpu)}
     <section class="glass card"><div class="mini-h">${I.ram}${esc(t('ov.ram'))}</div><b class="mini-b">${esc(sys.ram ? `${sys.ram.totalGB} GB ${sys.ram.type || ''}` : '—')}</b><span class="mini-s">${esc(sys.ram && sys.ram.configured ? t('ov.modules', { s: sys.ram.configured, n: sys.ram.modules }) : '')}</span></section>
     <section class="glass card"><div class="mini-h">${I.windows}${esc(t('ov.os'))}</div><b class="mini-b">${esc(sys.os && sys.os.name)}</b><span class="mini-s">${esc(sys.os ? [sys.os.displayVersion, sys.os.build ? t('ov.build', { b: `${sys.os.build}${sys.os.ubr ? '.' + sys.os.ubr : ''}` }) : sys.os.version].filter(Boolean).join(' · ') : '')}</span></section>
   </div>
+  ${diskCard()}
   <h2 class="sec">${esc(t('ov.checks'))}</h2>
   <div class="checks">${[...warn, ...info].map(checkCard).join('') || ''}</div>
   ${ok.length ? `<div class="ok-row" style="margin-top:12px">${ok.map(c => `<span class="chip ok">${I.check}${esc(c.title)}</span>`).join('')}</div>` : ''}

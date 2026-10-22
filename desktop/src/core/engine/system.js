@@ -1,6 +1,7 @@
 'use strict';
-// Bir kez yapılacak ayarlar (sürücü uygulaması genel ayarları) ve sistem kontrolleri (Windows, monitör, bellek).
+// Bir kez yapılacak ayarlar (sürücü uygulaması genel ayarları) ve sistem kontrolleri (Windows, monitör, bellek, disk).
 const { capOk } = require('./common');
+const { diskChecks } = require('./hardware');
 
 function cmpVer(a, b) {
   const pa = String(a || '').split(/[^\d]+/).filter(Boolean).map(Number), pb = String(b || '').split(/[^\d]+/).filter(Boolean).map(Number);
@@ -105,8 +106,8 @@ function vendorGlobal(sys, c) {
   return null;
 }
 
-// Sistem kontrolleri: level 'ok' | 'info' | 'warn'
-function systemChecks(sys, c) {
+// Sistem kontrolleri: level 'ok' | 'info' | 'warn'. games: arayüze giden oyun listesi (disk kontrolleri için).
+function systemChecks(sys, c, games = []) {
   const t = c.t;
   const out = [];
   const add = (level, title, detail, area) => out.push({ level, title, detail, area });
@@ -141,6 +142,7 @@ function systemChecks(sys, c) {
   const r = sys.ram || {};
   if (r.rated && r.configured && r.rated - r.configured >= 400) add('warn', t('checks.ramSlow', { cur: r.configured, rated: r.rated }), t('checks.ramSlowWhy', { profile: r.type === 'DDR5' ? 'EXPO/XMP' : 'XMP/DOCP', part: r.part }), 'ram');
   else if (r.configured) add('ok', t('checks.ramOk', { cur: r.configured, rated: r.rated && r.rated === r.configured ? t('checks.ramRated') : '' }), '', 'ram');
+  diskChecks(sys, c, games, add);
   return out;
 }
 

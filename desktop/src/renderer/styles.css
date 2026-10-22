@@ -155,6 +155,20 @@ h2.sec{font:600 12px/1 var(--font);letter-spacing:.09em;text-transform:uppercase
 .check p{margin:3px 0 0;color:var(--muted);font-size:13px}
 .ok-row{display:flex;flex-wrap:wrap;gap:8px}
 .three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mini-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* Diskler */
+.vols{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-top:14px}
+.vol{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 13px;border-radius:14px;background:var(--glass);border:1px solid var(--stroke)}
+.vol.low{border-color:rgba(253,192,74,.35)}
+.vol .letter{font:700 22px/1 var(--display);text-align:center;color:var(--acc-hi)}
+.vol .vname{display:flex;gap:8px;align-items:baseline;min-width:0}
+.vol .vname b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vol .vname span{color:var(--faint);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vol .vbar{height:7px;border-radius:7px;background:var(--glass-3);overflow:hidden;margin:6px 0 4px;box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.vol .vbar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--set),#9fd0ff)}
+.vol.low .vbar i{background:linear-gradient(90deg,var(--warn),#ff6b5c)}
+.vol .vsub{color:var(--muted);font-size:12.5px}
+.vol .vtags{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
 @media (max-width:1180px){.three{grid-template-columns:minmax(0,1fr)}}
 
 /* Çipler ve değer etiketleri */

@@ -1,6 +1,6 @@
 # RigTune
 
-Bilgisayardaki ekran kartını, monitörü ve yüklü oyunları okuyup her oyun için iki tür öneri verir:
+Bilgisayardaki ekran kartını, işlemciyi, belleği, diskleri, monitörü ve yüklü oyunları okuyup her oyun için iki tür öneri verir:
 
 - **Sürücü uygulaması:** AMD Adrenalin, NVIDIA App ya da Intel Graphics Software'deki oyun profili ayarları.
 - **Oyun içi ayarlar:** Ön ayar, doku, ışın izleme, ölçekleyici, kare üretimi, VSync, FPS sınırı, HDR.
@@ -20,7 +20,7 @@ Bir kez yapılacak genel ayarları ve Windows kontrollerini de gösterir. Donan�
 
 ## Nasıl çalışır
 
-1. **Sistem:** Windows'ta iki PowerShell betiği yalnızca okuma yapar. Ekran kartı ve sürücü bilgisi kayıt defterinden gelir. Monitörün gerçek yetenekleri (en yüksek yenileme hızı, FreeSync/G-SYNC aralığı, HDR parlaklığı) monitörün kendi EDID verisinden okunur.
+1. **Sistem:** Windows'ta iki PowerShell betiği yalnızca okuma yapar. Ekran kartı ve sürücü bilgisi kayıt defterinden gelir. Monitörün gerçek yetenekleri (en yüksek yenileme hızı, FreeSync/G-SYNC aralığı, HDR parlaklığı) monitörün kendi EDID verisinden okunur. İşlemcinin mimarisi model adından çıkarılır. Disklerin türü (NVMe SSD, SSD, HDD), sürücü harfleri ve boş alanı Windows'un depolama bilgisinden okunur.
 2. **Kütüphaneler:**
    - Steam: `libraryfolders.vdf` ve `appmanifest` dosyaları.
    - Epic: manifest dosyaları.
@@ -30,7 +30,11 @@ Bir kez yapılacak genel ayarları ve Windows kontrollerini de gösterir. Donan�
    - Playnite: `integrations/playnite/` eklentisinin yazdığı liste. Playnite açıkken kütüphane dosyasını kilitlediği için eklenti gerekir. Kurulum: klasörü `%AppData%\Playnite\Extensions\OyunAyarRehberi_Export` olarak kopyalayıp Playnite'ı yeniden başlat. Eklentinin 1.0 sürümü listeyi eski klasöre (`%APPDATA%\Oyun Ayar Rehberi`) yazar; uygulama iki klasörü de okur. Eklenti yoksa Playnite kapalıyken kütüphane dosyası doğrudan okunmaya çalışılır.
    - Ayrıca diskteki `Games` klasörleri ve senin eklediğin klasörler.
 3. **Oyun dosyaları:** Oyun klasöründeki kütüphanelerden DLSS, FSR, XeSS, kare üretimi, Reflex, oyun motoru ve hile koruması çıkarılır. Bu sayede veritabanında olmayan oyunlar da analiz edilir.
-4. **Öneri motoru:** Kural tabanlıdır. Oyunun türü, GPU yükü, desteklediği teknolojiler, kartın gücü ve özellikleri, monitörün çözünürlüğü ve yenileme hızı birlikte değerlendirilir. "Tahmini durum" ölçüm değildir.
+4. **Öneri motoru:** Kural tabanlıdır. Oyunun türü, GPU yükü, desteklediği teknolojiler, kartın gücü ve özellikleri, monitörün çözünürlüğü ve yenileme hızı birlikte değerlendirilir. "Tahmini durum" ölçüm değildir. Ayrıca:
+   - Strateji ve benzeri işlemciye bağlı oyunlarda ölçekleyicinin FPS'i artırmayacağı, rekabetçi oyunlarda yüksek FPS'te sınırı işlemcinin belirlediği not olarak yazılır.
+   - Ağır, açık dünya ya da Unreal Engine 5 oyunu HDD'de yüklüyse oyunun notunda SSD'ye taşıma önerilir.
+   - Sistem diskinde ya da oyun bulunan bir diskte boş alan %10'un altına inerse uyarı verilir (Windows Gezgini de bu sınırda sürücüyü kırmızı gösterir).
+   - Steam mağaza bilgisi alınan oyunlarda en düşük ve önerilen bellek gereksinimi bilgisayardaki bellekle karşılaştırılır.
 5. **Değişiklik izleme:** Açılışta ve ayarlanan aralıkta kontrol yapılır. Monitör değişince ve bilgisayar uykudan uyanınca da kontrol edilir. Fark varsa Geçmiş bölümüne yazılır ve bildirim gösterilir.
 6. **Adrenalin'deki mevcut ayarlar (AMD, Windows):** Oyun profilleri (`%LOCALAPPDATA%\ATI\ACE\APL\User.blb`), genel ayarlar (kayıt defteri ve `%LOCALAPPDATA%\AMD\CN\GExDb.blb`) okunur ve her öneri şu anki değerle karşılaştırılır. Adrenalin sekmesinde önce değiştirilmesi gereken ayarlar "şu an → öneri" biçiminde görünür. Ardından okunamayanlar gelir; zaten doğru olanlar katlı bir listede durur. Oyun listesindeki rozet, o oyunda kaç ayarın değişeceğini gösterir. Adrenalin'de bir şey değiştirince uygulama kendini yeniler. Radeon Super Resolution ve genel AFMF okunamıyor; bunlar "Adrenalin'de kontrol et" olarak gösterilir.
 
@@ -41,7 +45,7 @@ Arayüz, öneriler, tepsi menüsü ve bildirimler Türkçe ya da İngilizce olab
 ## Gizlilik
 
 - Uygulama hiçbir ayarı değiştirmez, yalnızca okur (Adrenalin'in ayar dosyaları ve kayıt defteri dahil).
-- İnternete yalnızca "Oyun bilgisini Steam mağazasından tamamla" açıkken çıkar. Bu durumda veritabanında olmayan oyunların adı ya da Steam numarası gönderilir. Kapak resimleri de bu ayara bağlıdır.
+- İnternete yalnızca "Oyun bilgisini Steam mağazasından tamamla" açıkken çıkar. Bu durumda veritabanında olmayan oyunların adı ya da Steam numarası gönderilir; dönen bilgiden tür, önerilen sistem ve bellek/SSD gereksinimi alınır. Kapak resimleri de bu ayara bağlıdır.
 - Veriler `%APPDATA%\RigTune\` klasöründe durur. Uygulamanın eski adı "Oyun Ayar Rehberi" idi; o addaki klasör varsa ayarlar ve geçmiş ilk açılışta buraya kopyalanır, eski klasör silinmez.
 
 ## Platformlar

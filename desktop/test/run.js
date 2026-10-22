@@ -8,13 +8,16 @@ const fs = require('fs');
 const { parseEdid } = require('../src/core/detect/edid');
 const { parseVdf } = require('../src/core/libraries/steam');
 const gpudb = require('../src/core/gpudb');
-const { nvidiaDriver, ramInfo } = require('../src/core/detect');
+const { nvidiaDriver, ramInfo, cpuInfo, storageFromWin } = require('../src/core/detect');
+const cpudb = require('../src/core/cpudb');
+const hw = require('../src/core/engine/hardware');
+const { fingerprint } = require('../src/core/changes');
 const { diff, changeText } = require('../src/core/changes');
 const { LOCALES, resolveLang, translator } = require('../src/locales');
 const E = require('../src/core/engine');
 const gamedb = require('../src/core/gamedb');
 const { cmpVer } = require('../src/core/engine/system');
-const { classify } = require('../src/core/steamstore');
+const { classify, parseReq } = require('../src/core/steamstore');
 const amdS = require('../src/core/detect/amd-settings');
 
 let pass = 0, fail = 0;
@@ -291,6 +294,155 @@ t('Veritabanı eşleşmesi: Steam numarası ve ad', () => {
   assert.strictEqual(gamedb.match({ name: 'Bilinmeyen' }), null);
 });
 
+console.log('İşlemci, bellek ve disk');
+t('İşlemci veritabanı: mimari, yıl, 3D V-Cache ve kısa ad', () => {
+  const x = n => { const r = cpudb.lookup(n); return [r.arch, r.year, r.x3d]; };
+  assert.deepStrictEqual(x('AMD Ryzen 5 9600X 6-Core Processor'), ['Zen 5', 2024, false]);
+  assert.deepStrictEqual(x('AMD Ryzen 7 9800X3D 8-Core Processor'), ['Zen 5', 2024, true]);
+  assert.deepStrictEqual(x('AMD Ryzen 7 7800X3D 8-Core Processor'), ['Zen 4', 2022, true]);
+  assert.deepStrictEqual(x('AMD Ryzen 9 7950X 16-Core Processor'), ['Zen 4', 2022, false]);
+  assert.deepStrictEqual(x('AMD Ryzen 7 PRO 7840U w/ Radeon 780M Graphics'), ['Zen 4', 2022, false]);
+  assert.strictEqual(x('AMD Ryzen 5 7535HS with Radeon Graphics')[0], 'Zen 3');
+  assert.strictEqual(x('AMD Ryzen 5 7520U with Radeon Graphics')[0], 'Zen 2');
+  assert.strictEqual(x('AMD Ryzen 7 5800U with Radeon Graphics')[0], 'Zen 3');
+  assert.strictEqual(x('AMD Ryzen 7 5700U with Radeon Graphics')[0], 'Zen 2');
+  assert.deepStrictEqual(x('AMD Ryzen 7 5800X3D 8-Core Processor'), ['Zen 3', 2020, true]);
+  assert.strictEqual(x('AMD Ryzen 5 3600 6-Core Processor')[0], 'Zen 2');
+  assert.strictEqual(x('AMD Ryzen 5 3400G with Radeon Vega Graphics')[0], 'Zen+');
+  assert.strictEqual(x('AMD Ryzen AI 9 HX 370 w/ Radeon 890M')[0], 'Zen 5');
+  assert.strictEqual(x('13th Gen Intel(R) Core(TM) i5-13600K')[0], 'Raptor Lake');
+  assert.strictEqual(x('Intel(R) Core(TM) i7-14700K')[0], 'Raptor Lake Refresh');
+  assert.strictEqual(x('Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz')[0], 'Coffee Lake Refresh');
+  assert.strictEqual(x('11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz')[0], 'Rocket Lake / Tiger Lake');
+  assert.strictEqual(x('Intel(R) Core(TM) Ultra 7 265K')[0], 'Arrow Lake');
+  assert.strictEqual(x('Intel(R) Core(TM) Ultra 7 258V')[0], 'Lunar Lake');
+  assert.deepStrictEqual(x('Apple M3 Pro'), ['Apple M3', 2023, false]);
+  assert.strictEqual(cpudb.lookup('Bilinmeyen İşlemci').known, false);
+  assert.strictEqual(cpudb.shortName('AMD Ryzen 5 9600X 6-Core Processor'), 'Ryzen 5 9600X');
+  assert.strictEqual(cpudb.shortName('13th Gen Intel(R) Core(TM) i5-13600K'), 'Core i5-13600K');
+  assert.strictEqual(cpuInfo({ name: 'AMD Ryzen 5 9600X 6-Core Processor', l3KB: 32768 }).l3MB, 32);
+});
+
+// Ham disk bilgisi (windows-system.ps1 çıktısının biçimi). MediaType 3 HDD, 4 SSD; BusType 11 SATA, 17 NVMe, 7 USB.
+const rawStorage = {
+  systemDrive: 'C:',
+  disks: [{ n: 0, name: 'NVMe Disk', bus: 17, media: 4, size: 2e12 }, { n: 1, name: 'SATA HDD', bus: 11, media: 3, size: 2e12 }, { n: 2, name: 'SATA SSD', bus: 11, media: 4, size: 5e11 }, { n: 3, name: 'USB Bellek', bus: 7, media: 0, size: 3.2e10 }],
+  partitions: [{ disk: 0, letter: 'C' }, { disk: 1, letter: 'E' }, { disk: 2, letter: 'D' }, { disk: 3, letter: 'U' }],
+  volumes: [{ letter: 'C', label: '', type: 3, size: 1000 * 2 ** 30, free: 50 * 2 ** 30 }, { letter: 'E', label: 'Oyun', type: 3, size: 1800 * 2 ** 30, free: 100 * 2 ** 30 },
+    { letter: 'D', label: '', type: 3, size: 465 * 2 ** 30, free: 300 * 2 ** 30 }, { letter: 'U', label: 'USB', type: 2, size: 30 * 2 ** 30, free: 29 * 2 ** 30 }, { letter: 'Z', label: 'DVD', type: 5, size: 0, free: 0 }],
+};
+const storage = storageFromWin(rawStorage);
+t('Diskler: tür, bağlantı, sistem diski ve sürücü harfi eşlemesi', () => {
+  assert.deepStrictEqual(storage.volumes.map(v => [v.letter, v.kind, v.bus, v.system, v.removable]), [['C', 'nvme', 'NVMe', true, false], ['D', 'ssd', 'SATA', false, false], ['E', 'hdd', 'SATA', false, false], ['U', null, 'USB', false, true]]);
+  assert.strictEqual(hw.volumeOf('e:\\SteamLibrary\\steamapps\\common\\Oyun', storage).letter, 'E');
+  assert.strictEqual(hw.volumeOf('C:/Games/Oyun', storage).letter, 'C');
+  assert.strictEqual(hw.volumeOf('\\\\nas\\oyunlar', storage), null);
+  const linux = { volumes: [{ mount: '/' }, { mount: '/home' }, { mount: '/mnt/oyun' }] };
+  assert.strictEqual(hw.volumeOf('/home/u/Games/x', linux).mount, '/home');
+  assert.strictEqual(hw.volumeOf('/homework/x', linux).mount, '/');
+  assert.strictEqual(hw.volumeOf('/mnt/oyun', linux).mount, '/mnt/oyun');
+});
+t('Steam gereksinimi: bellek ve SSD şartı', () => {
+  const li = (k, v) => `<li><strong>${k}:</strong> ${v}<br></li>`;
+  const req = (min, rec) => parseReq({ minimum: `<strong>Minimum:</strong><br><ul class="bb_ul">${min}</ul>`, recommended: rec ? `<strong>Recommended:</strong><br><ul class="bb_ul">${rec}</ul>` : undefined });
+  assert.deepStrictEqual(req(li('Memory', '12 GB RAM') + li('Storage', '70 GB available space') + li('Additional Notes', 'SSD required'), li('Memory', '16 GB RAM')), { ramMin: 12, ramRec: 16, ssd: 'req' });
+  assert.deepStrictEqual(req(li('Memory', '8192 MB RAM') + li('Storage', '150 GB SSD')), { ramMin: 8, ramRec: null, ssd: 'req' });
+  assert.strictEqual(req(li('Storage', '50 GB available space (SSD recommended)')).ssd, 'rec');
+  assert.strictEqual(req(li('Storage', '50 GB HDD/SSD')).ssd, null);
+  assert.deepStrictEqual(parseReq([]), { ramMin: null, ramRec: null, ssd: null });
+  assert.strictEqual(classify({ name: 'X', categories: [{ id: 2 }], genres: [], pc_requirements: { minimum: li('Memory', '16 GB RAM') } }).ramMin, 16);
+});
+
+// Donanımlı sahte sistem: Ryzen 5 9600X, 16 GB bellek ve yukarıdaki diskler.
+const hwSys = (display, ram = 16) => Object.assign(fakeSys('AMD Radeon RX 9070 XT', 16, display), { cpu: cpuInfo({ name: 'AMD Ryzen 5 9600X 6-Core Processor', cores: 6, threads: 12 }), ram: { totalGB: ram }, storage });
+function hwRec(sys, game, extra = {}, lang = 'tr') {
+  const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang });
+  const g = { id: 'x', source: 'steam', ...game };
+  return E.recommend(E.buildProfile(g, extra.db === undefined ? gamedb.match(g) : extra.db, extra.probe || null, extra.meta || null, null, lang), c);
+}
+const on = (r, re) => r.notes.some(n => re.test(n));
+t('HDD: ağır, açık dünya ve UE5 oyunlarında not; hafif oyunda yok', () => {
+  const sys = hwSys(mon(3440, 1440, 144, true));
+  const cp = hwRec(sys, { name: 'Cyberpunk 2077', installDir: 'E:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077' });
+  assert.ok(cp.hdd && on(cp, /sabit diskte \(HDD, E:\)/) && on(cp, /SSD'ye taşı/), cp.notes.join(' | '));
+  assert.deepStrictEqual(cp.disk, { mount: 'E:\\', letter: 'E', kind: 'hdd' });
+  assert.deepStrictEqual(cp.tags.find(x => x.t === 'E: · HDD'), { t: 'E: · HDD', k: 'w' });
+  // Açık dünya ama GPU yükü 2: ow alanı yüzünden not verilir.
+  assert.ok(on(hwRec(sys, { name: 'Ghost of Tsushima', installDir: 'E:\\Games\\Ghost' }), /Açık dünya/));
+  // Hafif oyun HDD'de: not yok, etiket var.
+  const hades = hwRec(sys, { name: 'Hades II', installDir: 'E:\\Games\\Hades II' });
+  assert.ok(!hades.hdd && !on(hades, /HDD/));
+  assert.deepStrictEqual(hades.tags.find(x => /HDD/.test(x.t)).k, '');
+  // Veritabanında olmayan Unreal Engine 5 oyunu
+  assert.ok(on(hwRec(sys, { name: 'Bilinmeyen UE5', installDir: 'E:\\Games\\UE5' }, { db: null, probe: { engine: 'Unreal Engine 5.4', antiCheat: [] } }), /Unreal Engine 5 oyunları oyun sırasında/));
+  // Steam gereksinimi SSD istiyor (hafif oyun bile olsa)
+  const st = hwRec(sys, { name: 'Bilinmeyen', installDir: 'E:\\Games\\B' }, { db: null, meta: { t: 'aks', y: 1, ssd: 'req' } });
+  assert.ok(st.hdd && on(st, /sistem gereksinimi SSD istiyor/));
+  // SSD'deki ağır oyun: not yok
+  const ssd = hwRec(sys, { name: 'Cyberpunk 2077', installDir: 'C:\\Games\\Cyberpunk 2077' });
+  assert.ok(!ssd.hdd && !on(ssd, /HDD/));
+  assert.deepStrictEqual(ssd.tags.find(x => /C:/.test(x.t)), { t: 'C: · NVMe SSD', k: '' });
+});
+t('İşlemci: strateji ve işlemciye bağlı oyunlarda ölçekleyici notu; rekabetçide yüksek Hz notu', () => {
+  const sys = hwSys(mon(3440, 1440, 144, true));
+  // Kendi notu işlemciden söz eden oyunda kısa not
+  const bl = hwRec(sys, { name: 'Mount & Blade II: Bannerlord' });
+  assert.ok(on(bl, /^Sınır işlemcide \(Ryzen 5 9600X\); ölçekleyici bu oyunda FPS'i artırmaz\.$/), bl.notes.join(' | '));
+  assert.ok(bl.tags.some(x => x.t === 'İşlemciye bağlı'));
+  // Notu olmayan strateji oyununda uzun not
+  assert.ok(on(hwRec(sys, { name: 'Age of Empires II: Definitive Edition' }), /^Bu oyunda FPS'i çoğunlukla işlemci \(Ryzen 5 9600X\) belirler/));
+  // Paradox motoru, veritabanında olmayan oyun
+  assert.ok(on(hwRec(sys, { name: 'Bilinmeyen Paradox' }, { db: null, probe: { engine: 'Clausewitz / Jomini', antiCheat: [] } }), /işlemci/));
+  // cpu: 0 ile dışarıda tutulan oyun ve ağır oyun
+  assert.ok(!on(hwRec(sys, { name: 'Hades II' }), /işlemci/));
+  assert.ok(!on(hwRec(sys, { name: 'Cyberpunk 2077' }), /işlemci/));
+  // Rekabetçi oyun: 144 Hz'de not var, 60 Hz'de yok
+  assert.ok(on(hwRec(sys, { name: 'Counter-Strike 2' }), /FPS sınırsızken kare hızını çoğunlukla işlemci/));
+  assert.ok(!on(hwRec(hwSys(mon(1920, 1080, 60, false)), { name: 'Counter-Strike 2' }), /işlemci/));
+});
+t('Bellek: Steam gereksinimiyle karşılaştırma', () => {
+  const sys = hwSys(mon(2560, 1440, 165, true), 16);
+  const r = meta => hwRec(sys, { name: 'Bilinmeyen' }, { db: null, meta: { t: 'aks', y: 2, ...meta } });
+  assert.ok(on(r({ ramMin: 12, ramRec: 32 }), /önerilen bellek 32 GB/));
+  assert.ok(on(r({ ramMin: 24, ramRec: 32 }), /en düşük sistem gereksinimi 24 GB/));
+  assert.ok(!on(r({ ramMin: 8, ramRec: 16 }), /bellek/i));
+  assert.ok(!on(hwRec(hwSys(mon(2560, 1440, 165, true), 32), { name: 'Bilinmeyen' }, { db: null, meta: { t: 'aks', y: 2, ramRec: 32 } }), /bellek/i));
+});
+t('Disk kontrolleri: sistem diski ve oyun diskinde %10 altı, HDD\'deki oyunlar', () => {
+  const sys = hwSys(mon(3440, 1440, 144, true));
+  const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang: 'tr' });
+  const games = [
+    { name: 'Cyberpunk 2077', installDir: 'E:\\Games\\Cyberpunk 2077', rec: { hdd: true } },
+    { name: 'Hades II', installDir: 'E:\\Games\\Hades II', rec: { hdd: false } },
+    { name: 'Witcher', installDir: 'D:\\Games\\Witcher', rec: { hdd: false } },
+    { name: 'Hazır liste', installDir: null, catalog: true, rec: { hdd: true } },
+  ];
+  const ch = E.systemChecks(sys, c, games).filter(x => x.area === 'disk');
+  // C: %5 boş (50/1000), E: %5,6 boş (100/1800), D: %65 boş
+  assert.deepStrictEqual(ch.map(x => [x.level, x.title]), [
+    ['warn', 'Sistem diskinde (C:) yer azaldı: %5 boş (50 GB)'],
+    ['warn', 'Oyun diskinde (E:) yer azaldı: %6 boş (100 GB)'],
+    ['info', "Sabit diskte (HDD) yüklü ve SSD'den fayda görecek oyunlar: 1"],
+  ]);
+  assert.ok(/Cyberpunk 2077, Hades II/.test(ch[1].detail));
+  assert.ok(ch[2].detail.startsWith('Cyberpunk 2077.'));
+  // Yeterli boş alan: "ok" kontrolü; disk bilgisi yoksa kontrol yok
+  const roomy = { ...sys, storage: storageFromWin({ ...rawStorage, volumes: rawStorage.volumes.map(v => ({ ...v, free: v.size / 2 })) }) };
+  assert.deepStrictEqual(E.systemChecks(roomy, c, []).filter(x => x.area === 'disk').map(x => [x.level, x.title]), [['ok', 'Sistem diskinde (C:) yeterli boş alan var (%50)']]);
+  assert.strictEqual(E.systemChecks({ ...sys, storage: null }, c, games).filter(x => x.area === 'disk').length, 0);
+});
+t('Değişiklik geçmişi: disk takılıp çıkarılması; USB ve eski kayıtlar sayılmaz', () => {
+  const base = { os: {}, cpu: {}, ram: null, gpus: [], displays: [], apps: {}, winSettings: null };
+  const fp = disks => fingerprint({ ...base, storage: { disks, volumes: [] } }, { games: [] });
+  const a = fp([{ name: 'A', bus: 'NVMe' }, { name: 'U', bus: 'USB' }]);
+  const b = fp([{ name: 'A', bus: 'NVMe' }, { name: 'A', bus: 'NVMe' }, { name: 'B', bus: 'SATA' }]);
+  assert.deepStrictEqual(a.disks, { A: 1 });
+  assert.deepStrictEqual(diff(a, b).map(x => [x.key, x.p.name]), [['diskNew', 'A'], ['diskNew', 'B']]);
+  assert.deepStrictEqual(diff(b, a).map(x => [x.key, x.p.name]), [['diskRemoved', 'A'], ['diskRemoved', 'B']]);
+  assert.deepStrictEqual(diff({ ...b, disks: undefined }, b), []);
+  assert.strictEqual(changeText(diff(a, b)[0], translator('en')), 'New disk: A');
+});
+
 console.log('Dil desteği');
 t('Dil dosyaları: tr ve en aynı anahtarları ve yer tutucuları taşır', () => {
   const ph = s => (s.match(/\{\w+\}/g) || []).sort().join(',');
@@ -338,22 +490,26 @@ t('İngilizce öneriler: Türkçe metin kalmaz, kararlar dilden bağımsız', ()
     fakeSys('NVIDIA GeForce GTX 1660 SUPER', 6, mon(1920, 1080, 144, true)),
     fakeSys('Intel(R) Arc(TM) B580 Graphics', 12, mon(2560, 1440, 165, true)),
     Object.assign(fakeSys('Apple M3 Pro', 0, mon(3024, 1964, 120, true)), { platform: 'darwin' }),
+    hwSys(mon(3440, 1440, 144, true)),
   ];
+  const hwGames = [{ name: 'A', installDir: 'E:\\Games\\A', rec: { hdd: true } }];
   const names = gamedb.G.map(x => x.n);
   const bad = new Set();
   const collect = v => { if (typeof v === 'string') { if (/[çğıöşüÇĞİÖŞÜ]/.test(v) && !names.some(n => v.includes(n))) bad.add(v); } else if (v && typeof v === 'object') Object.values(v).forEach(collect); };
-  const shape = r => JSON.stringify([r.L, r.need, r.driver && r.driver.items.map(i => [i.id, i.c]), r.ingame.map(i => [i.id, i.c])]);
+  const shape = r => JSON.stringify([r.L, r.need, r.driver && r.driver.items.map(i => [i.id, i.c]), r.ingame.map(i => [i.id, i.c]), r.notes.length, r.hdd]);
   for (const sys of systems) {
     for (const goal of ['kalite', 'denge', 'fps']) {
       const ctx = lang => E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { goal, lang });
       const ce = ctx('en'), ct = ctx('tr');
-      collect(E.vendorGlobal(sys, ce)); collect(E.systemChecks(sys, ce));
+      collect(E.vendorGlobal(sys, ce)); collect(E.systemChecks(sys, ce, hwGames));
       for (const x of gamedb.G) {
         for (const probe of [null, probeCP, { engine: 'Unreal Engine 5', antiCheat: ['EAC'] }]) {
-          const db = probe ? null : x, g = { id: 'x', name: x.n, source: 'steam' };
-          const re = E.recommend(E.buildProfile(g, db, probe, null, null, 'en'), ce);
+          // Klasör HDD'de (E:); mağaza bilgisi bellek ve SSD notlarını da üretir.
+          const db = probe ? null : x, g = { id: 'x', name: x.n, source: 'steam', installDir: 'E:\\Games\\' + x.n };
+          const meta = probe ? { t: 'aks', y: 2, ramMin: 24, ramRec: 32, ssd: 'req' } : null;
+          const re = E.recommend(E.buildProfile(g, db, probe, meta, null, 'en'), ce);
           collect(re);
-          assert.strictEqual(shape(re), shape(E.recommend(E.buildProfile(g, db, probe, null, null, 'tr'), ct)), `${x.n}: tr ve en kararları farklı`);
+          assert.strictEqual(shape(re), shape(E.recommend(E.buildProfile(g, db, probe, meta, null, 'tr'), ct)), `${x.n}: tr ve en kararları farklı`);
         }
       }
     }
