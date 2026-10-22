@@ -4,6 +4,7 @@ RX 9070 XT için oyun bazlı AMD Adrenalin ayar önerileri veren, tek dosyalık 
 
 - Başlangıç: 14 Ekim 2026, claude.ai sohbeti. Konuşma geçmişi: `docs/sohbet-gecmisi.md`
 - Yayındaki sürüm: https://claude.ai/artifact/9TzEFResiNzrbn3sQFyi5T (özel, sürüm 2, 16 Ekim 2026)
+- GitHub deposu: https://github.com/borasavkar/RigTune (gizli, `main` dalı, 22 Ekim 2026). Depo kökü bu klasör; `node_modules/` ve `dist/` yüklenmez.
 
 ## Kullanıcı ve çalışma kuralları
 
@@ -208,5 +209,5 @@ Bora'nın isteği: uygulama Adrenalin'deki mevcut ayarları okusun, değiştiril
 5. Masaüstü uygulamasını macOS ve Linux'ta dene.
 6. ~~İstenirse arayüze İngilizce dil desteği ekle~~ (17 Ekim 2026'da yapıldı; bkz. Dil desteği).
 7. RSR'nin (genel ve oyun profili) ve genel AFMF'nin nerede saklandığını bul. Yöntem: Adrenalin'de tek bir anahtarı değiştirip `User.blb`, `GExDb.blb` ve sürücü kayıt defteri anahtarını önce/sonra karşılaştırmak. Bora'nın onayı olmadan ayar değiştirilmez.
-8. GitHub deposu yok (22 Ekim 2026'da `gh repo list` ile bakıldı). Ad RigTune olarak belirlendi; deponun herkese açık mı gizli mi olacağına Bora karar verecek. Herkese açık olacaksa test fikstürü ve kişisel yollar yeniden gözden geçirilecek.
+8. ~~GitHub deposu~~ (22 Ekim 2026'da gizli olarak açıldı; bkz. üstteki "GitHub deposu" satırı). Herkese açılacaksa önce `CLAUDE.md` içindeki sistem ve kütüphane ayrıntıları, `docs/sohbet-gecmisi.md` ve test fikstürü gözden geçirilecek.
 9. Playnite eklentisinin 1.1 sürümünü `%APPDATA%\Playnite\Extensions\OyunAyarRehberi_Export\` klasörüne kopyala (BOM'lu kalmalı) ve Playnite'ı yeniden başlat. Bora'ya sorulmadan yapılmaz; yapılmasa da uygulama eski klasördeki listeyi okumaya devam eder.
