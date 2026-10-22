@@ -7,13 +7,17 @@
 // change: değiştirilmeli · ok: zaten öyle · unknown: okunamadı · na: karşılaştırma yok (bilgi satırı).
 const { FS, fgPlan, capPlan, capOk } = require('./common');
 const { translator } = require('../../locales');
-const { profileFor } = require('../detect/amd-settings');
+const { profileFor, gmdbFor } = require('../detect/amd-settings');
 
-// Şu an geçerli ayarlar: oyunun Adrenalin'de kendi profili varsa o, yoksa genel ayarlar.
+// Şu an geçerli ayarlar: oyunun Adrenalin'de kendi profili varsa o, yoksa genel ayarlar. Profilli oyunda RSR ve
+// (profilinde kaydı yoksa) AFMF, Adrenalin'in oyun listesinden (gmdb.blb) okunur.
 function currentOf(c, g) {
   if (!c.amd) return null;
   const prof = profileFor(c.amd, { dir: g.dir, appid: g.appid });
-  return { scope: prof ? 'game' : 'global', s: prof ? prof.s : c.amd.global || {}, global: c.amd.global || {} };
+  const gm = gmdbFor(c.amd, { dir: g.dir, appid: g.appid, name: g.dbName || g.n });
+  const s = prof ? { ...prof.s } : c.amd.global || {};
+  if (prof && gm) { s.rsr = gm.rsr; if (s.afmf === undefined) s.afmf = gm.afmf; }
+  return { scope: prof ? 'game' : 'global', s, global: c.amd.global || {}, gm };
 }
 
 function amd(g, c, L, need) {
@@ -54,10 +58,14 @@ function amd(g, c, L, need) {
     up = rsr ? [t('amd.up.rsr'), 'warn', t('amd.up.rsrWhy')] : [NATIVE, 'off', rk ? t('amd.up.rkNative') : perfOk];
   }
 
-  // FSR Upscaling (eski adıyla FSR 4 yükseltmesi)
+  // FSR Upscaling (eski adıyla FSR 4 yükseltmesi). Adrenalin'in oyun listesi anahtarın bu oyunda olduğunu söylüyorsa
+  // (gmdb FSRUpgradeAvailable) "çıkarsa aç" belirsizliği kalkar. Yok demesine güvenilmez: hiç açılmamış oyunda da yoktur.
+  const cur0 = currentOf(c, g);
+  const upAvail = !!(cur0 && cur0.gm && cur0.gm.fsrUpAvail);
   if (ml || mlMaybe) {
-    const isOn = f === 'fsr31' && ml;
-    const maybe = f === 'fsr31n' || f === '?' || (mlMaybe && (f === 'fsr31' || f === 'fsr4'));
+    const maybe0 = f === 'fsr31n' || f === '?' || (mlMaybe && (f === 'fsr31' || f === 'fsr4'));
+    const isOn = (f === 'fsr31' && ml) || (maybe0 && upAvail);
+    const maybe = maybe0 && !isOn;
     add('fsrUp', isOn ? on : maybe ? t('amd.fsrUp.maybeV') : f === 'fsr4' ? t('amd.fsrUp.notNeededV') : t('eng.v.unsupported'), isOn ? 'on' : maybe ? 'warn' : 'off',
       isOn ? t('amd.fsrUp.on')
         : maybe ? (mlMaybe ? t('amd.fsrUp.maybeRdna3') : t('amd.fsrUp.maybe'))
@@ -67,8 +75,12 @@ function amd(g, c, L, need) {
   }
   add('rsr', rsr ? on : off, rsr ? 'on' : 'off', rsr ? t('amd.rsr.on') : t('amd.rsr.off'), rsr);
 
-  // Gecikme
-  add('antiLag', g.al ? t('amd.antiLag.al2V') : on, 'on', g.al ? t('amd.antiLag.al2') : rk ? t('amd.antiLag.rk') : t('amd.antiLag.other'), true);
+  // Gecikme. Radeon Chill, Gecikme Önleme ve Boost ile birlikte çalışmaz: Adrenalin Chill açılınca ikisini kendisi kapatır
+  // (26.10.1'deki uyarı penceresi, 22 Ekim 2026). Chill yalnızca hafif oyunlarda ve oyunda Anti-Lag 2 yoksa önerilir;
+  // o zaman Gecikme Önleme kapalı önerilir ki iki satır birbiriyle çelişmesin.
+  const chillOn = g.t === 'haf' && c.vrr && !g.al;
+  if (chillOn) add('antiLag', off, 'off', t('amd.antiLag.chill'), false);
+  else add('antiLag', g.al ? t('amd.antiLag.al2V') : on, 'on', g.al ? t('amd.antiLag.al2') : rk ? t('amd.antiLag.rk') : t('amd.antiLag.other'), true);
   add('boost', off, 'off', t('amd.boost'), false);
 
   // Kare üretimi
@@ -77,8 +89,10 @@ function amd(g, c, L, need) {
   add('afmf', fg.v, fg.c, F.afmf ? fg.why : t('amd.afmfNo'), !F.afmf || fg.c === 'warn' ? null : fg.c === 'on');
   if (F.fsrMLFG) {
     const mlfg = fg.use === 'game' && (f === 'fsr31' || f === 'fsr4');
-    add('fsrFg', mlfg ? t('amd.fsrFg.onV') : off, mlfg ? 'on' : 'off',
-      mlfg ? t('amd.fsrFg.on') : fg.use === 'game' ? t('amd.fsrFg.old') : t('amd.fsrFg.none'), mlfg);
+    // Oyun FSR kare üretimini kullanmıyorsa bu anahtar o oyunda etkisizdir; genel ayarda "Etkin" önerildiği için burada
+    // karşılaştırılmaz (değiştir diye gösterilmez).
+    add('fsrFg', mlfg ? t('amd.fsrFg.onV') : t('amd.fsrFg.naV'), mlfg ? 'on' : 'off',
+      mlfg ? t('amd.fsrFg.on') : fg.use === 'game' ? t('amd.fsrFg.old') : t('amd.fsrFg.none'), mlfg ? true : null);
   }
 
   // FPS sınırı ve Chill. Adrenalin'de Kare Hızı Hedef Kontrolü (FRTC) yalnızca genel ayardır, oyun profilinde yoktur
@@ -86,7 +100,6 @@ function amd(g, c, L, need) {
   const cap = capPlan(g, c, fg, 'Frame Rate Target Control (FRTC)');
   const full = c.hz - 3;
   const globalCap = c.vrr ? full : c.hz;
-  const cur0 = currentOf(c, g);
   const frtcNow = cur0 && cur0.global.frtc;
   const halfCap = cap.cap != null && cap.cap !== globalCap;
   if (cap.cap != null && !halfCap) {
@@ -96,14 +109,16 @@ function amd(g, c, L, need) {
   } else {
     add('fpsCap', cap.v, cap.c, cap.why + (rk && frtcNow && frtcNow.on ? t('amd.cap.rkGlobal', { n: frtcNow.fps }) : ''));
   }
-  if (g.t === 'haf' && c.vrr) add('chill', t('amd.chill.onV', { min: Math.min(60, full), max: full }), 'on', t('amd.chill.on'), true);
+  if (chillOn) add('chill', t('amd.chill.onV', { min: Math.min(60, full), max: full }), 'on', t('amd.chill.on'), true);
   else if (halfCap) add('chill', t('amd.chill.capV', { n: cap.cap }), 'set', t('amd.chill.cap', { n: cap.cap }));
   else if (rk) add('chill', off, 'off', t('amd.chill.rk'), false);
   else add('chill', off, 'off', t('amd.chill.other'), false);
 
-  // Görüntü
+  // Görüntü. RSR, Radeon Image Sharpening ile birlikte çalışmaz: Adrenalin RSR açılınca RIS'i kendisi kapatır
+  // (26.10.1'deki uyarı penceresi, 22 Ekim 2026). RSR'nin kendi "Keskinleştirme Efekti" vardır.
   const fsrOn = up[1] === 'set' && need;
-  add('ris', fsrOn ? off : rk ? t('amd.ris.rkV') : t('amd.ris.onV'), fsrOn ? 'off' : 'on', fsrOn ? t('amd.ris.fsr') : rk ? t('amd.ris.rk') : t('amd.ris.other'), !fsrOn);
+  if (rsr) add('ris', off, 'off', t('amd.ris.rsr'), false);
+  else add('ris', fsrOn ? off : rk ? t('amd.ris.rkV') : t('amd.ris.onV'), fsrOn ? 'off' : 'on', fsrOn ? t('amd.ris.fsr') : rk ? t('amd.ris.rk') : t('amd.ris.other'), !fsrOn);
   // Bu ayar açılır liste; değer her zaman Adrenalin'deki seçeneklerden biri olmalı. 1 = "Uygulama belirtmediyse kapalı".
   add('vsyncWait', c.vrr || rk ? t('amd.vsync.vrrV') : t('amd.vsync.gameV'), c.vrr || rk ? 'off' : 'set', c.vrr ? t('amd.vsync.vrr') : rk ? t('amd.vsync.rk') : t('amd.vsync.other'), 1);
   add('enhancedSync', off, 'off', t('amd.enhancedSync'), false);
@@ -139,10 +154,13 @@ function compare(S, cur, t, A_ON, A_OFF) {
   };
   for (const i of S) {
     // FRTC yalnızca genel ayardır; diğerleri oyunun profilinden (yoksa genelden) okunur.
-    const v = i.id === 'fpsCap' ? cur.global.frtc : i.id === 'rsr' ? undefined : cur.s[i.id];
+    // Oyun profilindeki RSR'nin kaydı bilinmiyor; profilli oyunda RSR bu yüzden "okunamadı" kalır.
+    const v = i.id === 'fpsCap' ? cur.global.frtc : cur.s[i.id];
     const want = i.want;
     delete i.want;
     i.scope = i.id === 'fpsCap' ? 'global' : cur.scope;
+    // Oyun sayfasında hiç bulunmayan ayar: arayüzde ayrı grupta gösterilir, oyunun "değiştir" sayısına girmez.
+    if (i.id === 'fpsCap') i.globalOnly = true;
     // Radeon Boost'u desteklemeyen oyunların profilinde Boost kaydı yoktur; Adrenalin'de de satırı görünmez.
     if (v === undefined && i.id === 'boost' && cur.scope === 'game') { i.cur = t('amd.cur.none'); i.state = 'na'; continue; }
     i.cur = text(i.id, v);
@@ -150,8 +168,8 @@ function compare(S, cur, t, A_ON, A_OFF) {
     else if (i.cur === null) i.state = 'unknown';
     else i.state = same(i.id, want, v) ? 'ok' : 'change';
   }
-  const n = s => S.filter(i => i.state === s).length;
-  return { scope: cur.scope, change: n('change'), ok: n('ok'), unknown: n('unknown') };
+  const n = s => S.filter(i => i.state === s && !i.globalOnly).length;
+  return { scope: cur.scope, change: n('change'), ok: n('ok'), unknown: n('unknown'), globalChange: S.filter(i => i.globalOnly && i.state === 'change').length };
 }
 
 module.exports = { amd, currentOf };

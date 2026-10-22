@@ -42,7 +42,7 @@ function buildProfile(game, db, probe, meta, ov, lang = 'tr') {
     id: game.id, n: (db && game.source !== 'folder' ? game.name : null) || (db && db.n) || game.name || (meta && meta.name) || translator(lang)('eng.steamApp', { id: game.appid }),
     dbName: db ? db.n : null,
     // Sürücü uygulamasındaki oyun profilini bulmak için (klasör ve Steam numarası)
-    dir: game.installDir || null, appid: game.appid || (db && db.ids && db.ids.steam) || null,
+    dir: game.installDir || null, appid: game.appid || (db && db.ids && db.ids.steam) || null, exe: game.exe || null,
     t, y: clamp(+y, 1, 4), f,
     fg: (db && db.fg) || (probe && probe.fsrFG) ? 1 : 0,
     al: db && db.al ? 1 : 0,

@@ -162,6 +162,15 @@ t('GExDb ve kayıt defteri: genel ayarlar', () => {
   assert.deepStrictEqual([g.antiLag, g.chill.on, g.frtc.fps, g.enhancedSync, g.vsyncWait, g.texFilter, g.fsrUp, g.ris.pct], [true, false, 140, false, 1, 0, false, 20]);
   // Başka bir Oyun Deneyimi seçiliyken GExDb'deki "Özel" profil geçerli olmayabilir; RIS okunmaz.
   assert.strictEqual(amdS.fromGlobal(kmd, umd, { LastSavedExpID: 'PROFILE_HYPRRX' }, gex).ris, undefined);
+  // RSR ve AFMF (22 Ekim 2026'da Adrenalin'de açılıp kapatılarak bulundu): Gmx_RSREnabled 3 açık, 1 ya da 0 kapalı;
+  // DrvFrameGenEnabled "1" açık, "0" ya da kayıt yoksa kapalı. RIS kapatılınca GExDb'deki 27 numaralı kayıt silinir.
+  const g2 = rsr => amdS.fromGlobal({ ...kmd, Gmx_RSREnabled: rsr }, umd, { LastSavedExpID: 'PROFILE_CUSTOM' }, gex);
+  assert.deepStrictEqual([g2(1).rsr, g2(0).rsr, g2(3).rsr], [false, false, true]);
+  assert.strictEqual(g.afmf, false, 'kayıt yoksa AFMF kapalı');
+  assert.strictEqual(amdS.fromGlobal(kmd, { ...umd, DrvFrameGenEnabled: '1' }, {}, gex).afmf, true);
+  assert.strictEqual(amdS.fromGlobal(kmd, null, {}, gex).afmf, undefined, 'UMD okunamadıysa bilinmiyor');
+  const noRis = amdS.parseGex(Buffer.from(JSON.stringify({ '': { Profiles: [{ ProfileName: 'Custom', GPUS: [{ GraphicsFeatures: [{ FeatureID: 28, FeatureValue: '20' }] }] }] } })));
+  assert.strictEqual(amdS.fromGlobal(kmd, umd, { LastSavedExpID: 'PROFILE_CUSTOM' }, noRis).ris.on, false);
 });
 t('Witcher 3: öneriler Adrenalin\'deki değerle karşılaştırılır', () => {
   const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418)));
@@ -191,10 +200,87 @@ t('Genel ayarlar: Kare Hızı Hedef Kontrolü ve doku filtreleme karşılaştır
   assert.deepStrictEqual([item(g.items, 'Doku Filtreleme Kalitesi').cur, item(g.items, 'Doku Filtreleme Kalitesi').state], ['Yüksek', 'change']);
   assert.strictEqual(item(g.items, 'Yüzey Biçim Optimizasyonu').state, 'ok');
   assert.strictEqual(item(g.items, 'HYPR-RX').state, 'ok');
-  assert.strictEqual(g.state.change, 1);
+  // Grafik Seçenekleri de genel sayfada önerilir ve karşılaştırılır (profili olmayan oyunlar bunları kullanır).
+  assert.deepStrictEqual([item(g.items, 'AMD FSR Yükseltme').v, item(g.items, 'AMD FSR Yükseltme').state], ['Etkin', 'change']);
+  assert.strictEqual(item(g.items, 'Radeon Gecikme Önleme').state, 'ok');
+  assert.strictEqual(item(g.items, 'Radeon Image Sharpening 2').cur, 'Etkin · Netlik %20');
+  assert.strictEqual(item(g.items, 'Radeon Super Resolution').state, 'unknown', 'test verisinde RSR yok');
+  assert.strictEqual(g.state.change, 3, 'doku filtreleme, FSR Yükseltme, FSR Kare Üretimi');
   // Monitör 180 Hz'e alınınca 140 artık uygun değil.
   const s180 = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 180, true)));
   assert.strictEqual(item(E.vendorGlobal(s180, E.context(s180, { gpu: s180.gpus[0], display: s180.displays[0] }, { lang: 'tr' })).items, 'Kare Hızı Hedef Kontrolü').state, 'change');
+});
+
+t('Radeon Chill ile Gecikme Önleme birlikte önerilmez (Adrenalin ikisini birlikte çalıştırmaz)', () => {
+  const sys = fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418));
+  const aoe = recFor(sys, 'Age of Empires IV').r.driver.items;
+  assert.strictEqual(item(aoe, 'Radeon Chill').c, 'on');
+  assert.strictEqual(item(aoe, 'Radeon Gecikme Önleme').v, 'Devre dışı');
+  for (const s of [sys, fakeSys('AMD Radeon RX 9070 XT', 16, mon(2560, 1440, 165, true)), fakeSys('AMD Radeon RX 6700 XT', 12, mon(1920, 1080, 144, true))])
+    for (const x of gamedb.G) {
+      const it = recFor(s, x.n).r.driver.items;
+      const chill = it.find(i => i.id === 'chill'), al = it.find(i => i.id === 'antiLag');
+      assert.ok(!(chill.c === 'on' && al.c === 'on'), `${x.n}: Chill ve Gecikme Önleme birlikte açık öneriliyor`);
+      // RSR, Radeon Image Sharpening ile birlikte çalışmaz.
+      const rsr = it.find(i => i.id === 'rsr'), ris = it.find(i => i.id === 'ris');
+      assert.ok(!(rsr.c === 'on' && ris.c === 'on'), `${x.n}: RSR ve netleştirme birlikte açık öneriliyor`);
+    }
+});
+t('Adrenalin ölçümü: kare süreleri, kare üretimi ve ölçüme göre öneri', () => {
+  const steady = amdS.parseGpa(Array.from({ length: 400 }, (_, i) => 7000 + (i % 3) * 10).join(' '));
+  const alt = amdS.parseGpa(Array.from({ length: 400 }, (_, i) => (i % 2 ? 2500 : 11400)).join(' '));
+  assert.ok(Math.abs(steady.fps - 142.7) < 0.5, String(steady.fps));
+  assert.deepStrictEqual([steady.fg, alt.fg], [false, true]);
+  assert.strictEqual(amdS.parseGpa('1 2 3'), null, 'çok az kare');
+  const verdict = (fps, fg) => {
+    const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true)));
+    sys.amdSettings.perf = { byExe: { 'game.exe': { fps, p95: 9, fg, frames: 500, at: Date.UTC(2026, 9, 19) } }, games: [{ exePath: 'C:\\Games\\Test\\game.exe', title: 'Test', appid: '99' }] };
+    const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang: 'tr' });
+    const r = E.recommend(E.buildProfile({ id: 'x', name: 'Test', source: 'steam', appid: '99', installDir: 'C:\\Games\\Test' }, null, null, null, null, 'tr'), c);
+    return r.measured && r.measured.verdict;
+  };
+  assert.strictEqual(verdict(141, false), 'headroom', 'sınıra dayanıyor');
+  assert.strictEqual(verdict(141, true), 'ok', 'kare üretimiyle sınırda: temel FPS 70');
+  assert.strictEqual(verdict(100, false), 'ok');
+  assert.strictEqual(verdict(40, false), 'low', 'FreeSync aralığının (48) altında');
+  assert.strictEqual(verdict(160, false), 'over', '144 Hz üstü: FreeSync aralığından çıkılmış');
+});
+t('gmdb.blb: oyuna özel RSR, AFMF ve Adrenalin\'in ölçtüğü FPS', () => {
+  const gm = amdS.parseGmdb(Buffer.from(JSON.stringify({ games: [{
+    guid: '{5d1f57e0}', title: 'The Witcher 3: Wild Hunt — Remastered', steam_id: 292030,
+    exe_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Witcher 3\\bin\\x64_dx12\\witcher3.exe',
+    upscaling_enabled: 'TRUE', upscaling_use_borderless: 'FALSE', framegen_enabled: 0, FSRUpgradeAvailable: 'TRUE', MlfiAvailable: 'TRUE',
+    userprofiletype: 4, averageFPS: 116.98909723583368, percentile95_msec: 10, lastperformancereporttime: 'Mon Oct 19 03:10:07 2026',
+  }] })));
+  assert.deepStrictEqual([gm[0].rsr, gm[0].afmf, gm[0].fps, gm[0].p95, gm[0].profileType, gm[0].fsrUpAvail], [true, false, 117, 10, 4, true]);
+  const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418)));
+  sys.amdSettings.gm = gm;
+  const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang: 'tr' });
+  const g = { id: 'x', name: 'The Witcher 3: Wild Hunt', source: 'steam', appid: '292030', installDir: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Witcher 3' };
+  const r = E.recommend(E.buildProfile(g, gamedb.match(g), null, null, null, 'tr'), c);
+  // Profilli oyunda RSR artık okunur (önceden "okunamadı" idi).
+  assert.deepStrictEqual([item(r.driver.items, 'Radeon Super Resolution').state, item(r.driver.items, 'Radeon Super Resolution').cur], ['change', 'Etkin']);
+  assert.strictEqual(r.measured.fps, 117, 'gmdb ölçümü');
+});
+t('Klasör tarama: büyük alt klasör tarama sınırını bitirse de ana dizindeki exe bulunur', () => {
+  const { findExes } = require('../src/core/libraries/folders');
+  const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rigtune-exe-'));
+  try {
+    fs.mkdirSync(path.join(root, 'AAA_Shaders'));
+    for (let i = 0; i < 20; i++) fs.writeFileSync(path.join(root, 'AAA_Shaders', `s${i}.bin`), '');
+    fs.writeFileSync(path.join(root, 'Game.exe'), 'x');
+    assert.ok(findExes(root, 3, [], { n: 8 }).some(e => /Game\.exe$/.test(e.path)));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+t('Yalnızca genel ayarda olan satır oyunun değişiklik sayısına girmez', () => {
+  const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 180, true)));
+  const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang: 'tr' });
+  const g = { id: 'x', name: 'The Witcher 3: Wild Hunt', source: 'steam', appid: '292030', installDir: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Witcher 3' };
+  const r = E.recommend(E.buildProfile(g, gamedb.match(g), null, null, null, 'tr'), c);
+  const cap = item(r.driver.items, 'Kare Hızı Hedef Kontrolü');
+  assert.deepStrictEqual([cap.globalOnly, cap.state], [true, 'change'], '180 Hz için 140 uygun değil');
+  assert.strictEqual(r.driver.state.globalChange, 1);
+  assert.strictEqual(r.driver.state.change, r.driver.items.filter(i => i.state === 'change' && !i.globalOnly).length);
 });
 
 console.log('NVIDIA');

@@ -8,16 +8,24 @@ const { readGameConfig } = require('./stores');
 const SKIP_EXE = /^(unins\d*|setup|install(er)?|vc_?redist.*|dxsetup|dxwebsetup|crashreport.*|crashreportclient|unitycrashhandler(32|64)?|ue[45]prereqsetup.*|uninstall.*|crashpad_handler|easyanticheat.*|be(service|launcher).*(_x64)?|quicksfv|language\.changer|notification_helper|gamingrepair|.*(redist|helper|updater|patcher|reporter|launcherhelper)\w*)\.exe$/i;
 const SKIP_DIR = /^(_commonredist|redist|redistributables?|__installer|directx|vcredist|support|_redist|installers?|prereq(uisites)?|easyanticheat|battleye|gamingrepair)$/i;
 
+// Önce klasörün kendi dosyaları, sonra alt klasörler: büyük doku/gölgelendirici klasörleri (ör. King Arthur: Legion IX'teki
+// BinaryShaders) tarama bütçesini bitirmeden ana dizindeki exe bulunur (22 Ekim 2026'da bu yüzden kaçırılan oyun vardı).
 function findExes(dir, depth, acc = [], budget = { n: 4000 }) {
   let ents = [];
   try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return acc; }
   for (const e of ents) {
-    if (--budget.n <= 0) break;
-    const p = path.join(dir, e.name);
+    if (--budget.n <= 0) return acc;
     if (e.isFile() && /\.exe$/i.test(e.name) && !SKIP_EXE.test(e.name)) {
+      const p = path.join(dir, e.name);
       let size = 0; try { size = fs.statSync(p).size; } catch { /* yok */ }
       acc.push({ path: p, size, depth });
-    } else if (e.isDirectory() && depth > 0 && !SKIP_DIR.test(e.name)) findExes(p, depth - 1, acc, budget);
+    }
+  }
+  if (depth > 0) {
+    for (const e of ents) {
+      if (budget.n <= 0) break;
+      if (e.isDirectory() && !SKIP_DIR.test(e.name)) findExes(path.join(dir, e.name), depth - 1, acc, budget);
+    }
   }
   return acc;
 }

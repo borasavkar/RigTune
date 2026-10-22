@@ -72,8 +72,9 @@ function rows(items) {
 
 // Sürücü uygulamasındaki şu anki değerle karşılaştırılmış satırlar (state: change | unknown | na | ok).
 // Değişecekler en üstte ve belirgin; okunamayanlar ayrı; zaten doğru olanlar katlı listede.
-function stateRow(i, showScope) {
-  const name = `${esc(i.k)}${i.alt && i.alt !== i.k ? `<span class="alt">${esc(i.alt)}</span>` : ''}${showScope && i.scope === 'global' ? `<span class="chip sm">${I.globe}${esc(t('drv.globalTag'))}</span>` : ''}`;
+// Oyun sayfasında bulunmayan, yalnızca genel ayarlarda olan satırlar (globalOnly: Kare Hızı Hedef Kontrolü) ayrı grupta ve etiketli.
+function stateRow(i) {
+  const name = `${esc(i.k)}${i.alt && i.alt !== i.k ? `<span class="alt">${esc(i.alt)}</span>` : ''}${i.globalOnly ? `<span class="chip sm">${I.globe}${esc(t('drv.globalTag'))}</span>` : ''}`;
   const now = i.state === 'unknown' ? `<span class="now unread">${esc(t('drv.unread'))}</span>${I.arrow}`
     : i.state === 'change' ? `<span class="now" title="${esc(t('drv.now'))}">${esc(i.cur)}</span>${I.arrow}` : '';
   // Bilgi satırlarında ve öneriyle tam aynı yazılmayan doğru satırlarda (ör. netlik %20, öneri %30–40) şu anki değer de yazılır.
@@ -81,18 +82,18 @@ function stateRow(i, showScope) {
   return `<div class="row st-${esc(i.state)}"><div class="k">${name}</div><div class="vals">${now}${pill(i.v, i.state === 'change' ? 'go' : i.c)}</div><div class="why">${info}${esc(i.why)}</div></div>`;
 }
 function stateView(d, kind) {
-  const by = s => d.items.filter(i => i.state === s);
+  const own = d.items.filter(i => !i.globalOnly), glob = d.items.filter(i => i.globalOnly);
+  const by = s => own.filter(i => i.state === s);
   const ch = by('change'), un = by('unknown'), na = by('na'), ok = by('ok');
   const g = kind === 'global' ? 'Global' : '';
   const lines = [];
   if (kind === 'game') lines.push(t(d.state.scope === 'game' ? 'drv.scopeGame' : 'drv.scopeGlobal'));
   if (un.length) lines.push(t('drv.sumUnknown', { n: un.length }));
   lines.push(t('drv.read', { t: timeAgo(S.system.amdSettings && S.system.amdSettings.at) }));
-  const showScope = kind === 'game';
-  const grp = (title, list) => (list.length ? `<div class="group-t">${esc(title)}</div><div class="rows">${list.map(i => stateRow(i, showScope)).join('')}</div>` : '');
+  const grp = (title, list) => (list.length ? `<div class="group-t">${esc(title)}</div><div class="rows">${list.map(stateRow).join('')}</div>` : '');
   return `<div class="drvsum ${ch.length ? 'has' : 'ok'}"><div class="ic">${ch.length ? I.alert : I.check}</div><div><b>${esc(ch.length ? t('drv.sumChange' + g, { n: ch.length }) : t('drv.sumOk' + g))}</b>${lines.map(l => `<p>${esc(l)}</p>`).join('')}</div></div>`
-    + grp(t('drv.change'), ch) + grp(t('drv.unknown'), un) + grp(t('drv.info'), na)
-    + (ok.length ? `<details class="okgrp"${UI.okOpen ? ' open' : ''}><summary class="group-t">${I.check}${esc(t('drv.ok', { n: ok.length }))}</summary><div class="rows">${ok.map(i => stateRow(i, showScope)).join('')}</div></details>` : '');
+    + grp(t('drv.change'), ch) + grp(t('drv.unknown'), un) + grp(t('drv.info'), na) + grp(t('drv.globalOnly'), glob)
+    + (ok.length ? `<details class="okgrp"${UI.okOpen ? ' open' : ''}><summary class="group-t">${I.check}${esc(t('drv.ok', { n: ok.length }))}</summary><div class="rows">${ok.map(stateRow).join('')}</div></details>` : '');
 }
 const changeCount = g => (g.rec.driver && g.rec.driver.state ? g.rec.driver.state.change : 0);
 

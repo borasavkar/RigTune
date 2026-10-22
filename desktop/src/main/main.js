@@ -15,7 +15,8 @@ const hiddenStart = process.argv.includes('--hidden');
 protocol.registerSchemesAsPrivileged([{ scheme: 'oar', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
-app.setAppUserModelId('tr.savkar.rigtune');
+const APP_ID = 'tr.savkar.rigtune';
+app.setAppUserModelId(APP_ID);
 
 let win = null, tray = null, analyzer = null, quitting = false, timer = null, displayPoll = null, lastDisplaySig = '';
 
@@ -54,6 +55,14 @@ function createWindow(show) {
   });
   win.on('closed', () => { win = null; });
   win.on('focus', () => refreshAmdSoon());
+  // Taşınabilir sürüm her açılışta Temp'te rastgele adlı bir klasöre açılır, kapanınca o klasör silinir. Görev çubuğuna
+  // sabitlenen simge o geçici yolu gösterirse uygulama kapanınca beyaz kağıt simgesine döner (22 Ekim 2026'da görüldü).
+  // Sabitleme, simge ve yeniden açma komutu taşınabilir exe dosyasının kendisini göstersin; electron-builder bu yolu
+  // PORTABLE_EXECUTABLE_FILE değişkeninde verir. Kurulumla gelen sürümde bu değişken yoktur ve gerek de yoktur.
+  const portableExe = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE;
+  if (portableExe) {
+    try { win.setAppDetails({ appId: APP_ID, appIconPath: portableExe, appIconIndex: 0, relaunchCommand: `"${portableExe}"`, relaunchDisplayName: analyzer.t('app.name') }); } catch { /* desteklenmiyor */ }
+  }
   // Arayüzden yalnızca uygulama içi adresler açılır; dış bağlantılar tarayıcıya gider.
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('oar://')) e.preventDefault(); });
@@ -127,7 +136,9 @@ function watchAmd() {
 
 function applySettings(patch) {
   if ('openAtLogin' in patch && (app.isPackaged || process.platform !== 'linux')) {
-    try { app.setLoginItemSettings({ openAtLogin: !!patch.openAtLogin, args: ['--hidden'] }); } catch { /* desteklenmiyor */ }
+    // Taşınabilir sürümde çalışan exe Temp'teki geçici kopyadır; açılışa taşınabilir dosyanın kendisi yazılır.
+    const portableExe = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE;
+    try { app.setLoginItemSettings({ openAtLogin: !!patch.openAtLogin, args: ['--hidden'], ...(portableExe ? { path: portableExe } : {}) }); } catch { /* desteklenmiyor */ }
   }
   const r = analyzer.setSettings(patch);
   if ('watch' in patch || 'intervalMin' in patch) schedule();

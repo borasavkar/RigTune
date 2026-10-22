@@ -42,6 +42,30 @@ function vendorGlobal(sys, c) {
       const e = G && G.experience;
       if (e === 'PROFILE_CUSTOM') mark(t('global.amd.expCustom'), true); else if (/HYPR/i.test(e || '')) mark('HYPR-RX', false); else mark(null);
     }
+    // Grafik Seçenekleri (Oyun > Ekran Kartları): kendi profili olmayan bütün oyunlar bu değerleri kullanır. Oyuna özel durumlar
+    // (hafif oyunda Chill, modern ölçekleyicisi olmayan oyunda RSR, FSR kullanan oyunda netleştirme kapalı) Oyunlar bölümünde
+    // o oyunun profiline yazılır. Satırların adları ve değerleri oyun profilindekilerle aynıdır (amd.k, amd.v).
+    const tog = (id, want, why) => {
+      add(id, t('amd.k.' + id), want ? A_ON : A_OFF, want ? 'on' : 'off', why);
+      mark(has(id) ? (G[id] ? A_ON : A_OFF) : null, has(id) && G[id] === want);
+    };
+    if (F.rsr) tog('rsr', false, t('global.amd.g.rsr'));
+    if (F.afmf) tog('afmf', false, t('global.amd.g.afmf'));
+    if (F.fsrML === true) tog('fsrUp', true, t('global.amd.g.fsrUp'));
+    if (F.fsrMLFG) tog('fsrFg', true, t('global.amd.g.fsrFg'));
+    tog('antiLag', true, t('global.amd.g.antiLag'));
+    tog('boost', false, t('global.amd.g.boost'));
+    add('chill', t('amd.k.chill'), A_OFF, 'off', t('global.amd.g.chill'));
+    mark(has('chill') ? (G.chill.on ? A_ON : A_OFF) : null, has('chill') && !G.chill.on);
+    add('ris', t('amd.k.ris'), t('amd.ris.onV'), 'on', t('global.amd.g.ris'));
+    mark(has('ris') ? (G.ris.on ? (G.ris.pct != null ? t('amd.cur.ris', { n: G.ris.pct }) : A_ON) : A_OFF) : null, has('ris') && G.ris.on);
+    add('desktopSharpen', K('desktopSharpen'), t('eng.v.optional'), 'set', t('global.amd.desktopSharpen'));
+    na();
+    add('videoUpscale', K('videoUpscale'), t('eng.v.optional'), 'set', t('global.amd.videoUpscale'));
+    na();
+    tog('enhancedSync', false, t('amd.enhancedSync'));
+    add('vsyncWait', t('amd.k.vsyncWait'), d.vrr ? t('amd.vsync.vrrV') : t('amd.vsync.gameV'), d.vrr ? 'off' : 'set', d.vrr ? t('amd.vsync.vrr') : t('amd.vsync.other'));
+    mark(has('vsyncWait') ? t('amd.vsyncOpts')[G.vsyncWait] || OTHER : null, has('vsyncWait') && G.vsyncWait === 1);
     // FPS sınırı (FRTC): Adrenalin'de yalnızca genel ayar; bütün oyunlara uygulanır.
     const capN = d.vrr ? c.hz - 3 : c.hz;
     add('frtc', K('frtc'), t('amd.cap.onV', { n: capN }), 'set', d.vrr ? t('global.amd.frtc', { n: capN }) : t('global.amd.frtcNoVrr', { n: capN }));
@@ -54,6 +78,10 @@ function vendorGlobal(sys, c) {
     mark(has('tess') ? (G.tess === 0 ? t('global.amd.tessV') : OTHER) : null, has('tess') && G.tess === 0);
     add('aa', K('aa'), t('global.amd.aaV'), 'set', t('global.amd.aa'));
     if (has('aa')) mark((G.aa.mode === 1 ? t('global.amd.aaV') : OTHER) + (G.aa.mlaa ? t('global.amd.mlaaOn') : ''), G.aa.mode === 1 && !G.aa.mlaa); else mark(null);
+    add('aniso', K('aniso'), A_OFF, 'off', t('global.amd.aniso'));
+    mark(has('aniso') ? (G.aniso > 0 ? `${A_ON} · ${G.aniso}x` : A_OFF) : null, has('aniso') && G.aniso === 0);
+    add('tripleBuf', K('tripleBuf'), A_OFF, 'off', t('global.amd.tripleBuf'));
+    mark(has('tripleBuf') ? (G.tripleBuf ? A_ON : A_OFF) : null, has('tripleBuf') && G.tripleBuf === false);
     add('tenBit', K('tenBit'), A_OFF, 'off', t('global.amd.tenBit'));
     na();
     if (F.fsrML) {

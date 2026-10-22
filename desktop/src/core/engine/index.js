@@ -7,6 +7,7 @@ const { intel } = require('./intel');
 const { ingame } = require('./ingame');
 const { vendorGlobal, systemChecks } = require('./system');
 const { gameHardware } = require('./hardware');
+const { measured } = require('./measured');
 
 // Sürücü paneli olmayan platformlar (macOS, Linux, bilinmeyen kart): yalnızca oyun içi seçimler.
 function genericPick(g, c, L, need) {
@@ -55,6 +56,9 @@ function recommend(g, c) {
   // İşlemci, bellek ve disk notları (engine/hardware.js)
   const hw = gameHardware(g, c, L, need, notes);
   notes.push(...hw.notes);
+  // Adrenalin'in son ölçümü (yalnızca AMD'de; Oyun Danışmanı'nın kullandığı kare süreleri)
+  const meas = c.vendor === 'amd' ? measured(g, c) : null;
+  if (meas) notes.push(meas.text);
   if (g.est.t || g.est.y) {
     const which = g.est.t && g.est.y ? 'ty' : g.est.t ? 't' : 'y';
     const src = g.est.t === 'mağaza' || g.est.y === 'mağaza' ? 'store' : 'guess';
@@ -64,8 +68,9 @@ function recommend(g, c) {
     L, over, need, perf: over ? t('levelOver') : t('levels')[L],
     driver: driver && { app: driver.app, path: driver.path, items: driver.items, groups: driver.groups, state: driver.state || null },
     ingame: ingame(g, c, L, need, pick, over),
-    notes, tags: tagsOf(g, c, hw),
+    notes, tags: tagsOf(g, c, hw).concat(meas ? [{ t: meas.tag, k: meas.verdict === 'low' ? 'w' : 'a' }] : []),
     disk: hw.disk, hdd: hw.hdd,
+    measured: meas && { fps: meas.fps, p95: meas.p95, fg: meas.fg, at: meas.at, verdict: meas.verdict },
   };
 }
 
