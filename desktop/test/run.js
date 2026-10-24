@@ -624,8 +624,11 @@ t('Witcher 3: anlamı kesin değerler çözülür, sayısal kodlar dosyadaki hâ
 });
 t('RDR2: system.xml', () => {
   const r = gamecfg.parseRdr2('<x>\n<screenWidth value="3440" />\n<screenHeight value="1440" />\n<windowed value="2" />\n<vSync value="0" />\n<hdr value="false" />\n<fsr2Index value="1" />\n<dlssIndex value="0" />\n</x>');
-  assert.deepStrictEqual(r.v, { res: { w: 3440, h: 1440 }, vsync: false, hdr: false });
-  assert.deepStrictEqual(r.raw, { display: 'windowed=2', up: 'fsr2Index=1 · dlssIndex=0' });
+  assert.deepStrictEqual(r.v, { res: { w: 3440, h: 1440 }, display: 'borderless', vsync: false, hdr: false, fg: false, up: { kind: 'fsr', gen: '2', mode: 'q', src: 'fsr2Index=1' } });
+  assert.deepStrictEqual(r.raw, {});
+  // Doğrulanmamış değerler dosyadaki hâliyle kalır.
+  const u = gamecfg.parseRdr2('<windowed value="1" />\n<fsr2Index value="3" />');
+  assert.deepStrictEqual(u.raw, { display: 'windowed=1', up: 'fsr2Index=3' });
 });
 t('Unreal Engine: GameUserSettings.ini; ölçekleyici yalnızca adı kendini anlatıyorsa çözülür', () => {
   const a = gamecfg.parseUnreal('[/Script/Game.Settings]\nUpscaleMode=AMD_FSR2_Quality\nUpscaleSoftness=0.200000\nFrameGeneration=(Mode=Off,NumFramesInterpolated=0,LocStr="Off")\nResolutionSizeX=3440\nResolutionSizeY=1440\nFullscreenMode=1\nFrameRateLimit=180.000000\nbUseHDRDisplayOutput=True\n');
@@ -711,6 +714,29 @@ t('Unreal oyununda ölçekleyici, ekran modu ve FPS sınırı karşılaştırıl
   const up3 = item(E.recommend(p3, c).ingame, 'Ölçekleyici');
   assert.deepStrictEqual([up3.state, up3.raw], ['unknown', 'UpscaleMode=AMD_FSR2_Quality']);
   assert.strictEqual(p3.cfg.raw.up, undefined, 'önbellekteki sonuç değişmez');
+});
+t('RDR2: menüdeki bütün grafik ayarları dosyadan okunur ve önerilerle karşılaştırılır', () => {
+  const xml = ['<graphics>', '<textureQuality>kSettingLevel_Ultra</textureQuality>', '<anisotropicFiltering value="4" />', '<msaa value="0" />', '<fsr2Index value="1" />', '</graphics>',
+    '<advancedGraphics>', '<API>kSettingAPI_Vulkan</API>', '<locked value="false" />', '<volumetricsRaymarchQuality>kSettingLevel_Ultra</volumetricsRaymarchQuality>',
+    '<volumetricsRaymarchResolutionUnclamped value="true" />', '<reflectionMSAA value="2" />', '<scalingMode>kSettingScale_Mode1o1</scalingMode>', '<grassLod value="3.000000" />',
+    '<treeTessellationEnabled value="true" />', '<waterReflectionQuality>kSettingLevel_Low</waterReflectionQuality>', '</advancedGraphics>',
+    '<video>', '<screenWidth value="3440" />', '<screenHeight value="1440" />', '<windowed value="2" />', '<vSync value="0" />', '<tripleBuffered value="false" />', '</video>'].join('\n');
+  const cfg = gamecfg.parseRdr2(xml);
+  assert.deepStrictEqual([cfg.all.texture, cfg.all.aniso, cfg.all.msaa, cfg.all.fsr2, cfg.all.api, cfg.all.resScale, cfg.all.reflectionMsaa, cfg.all.grassLod, cfg.all.screenType], ['Ultra', 'X16', 'Off', 'Quality', 'Vulkan', 'Off', 'X4', '3', 'Windowed Borderless']);
+  const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418)));
+  const rec = lang => { const g = { id: 'r', name: 'Red Dead Redemption 2', source: 'steam', appid: '1174180', installDir: 'C:\\Games\\RDR2' }; const pr = E.buildProfile(g, gamedb.match(g), null, null, null, lang); pr.cfg = cfg; return E.recommend(pr, E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang })); };
+  const r = rec('tr'), gs = r.gameSettings;
+  const st = id => gs.items.find(i => i.id === id).state;
+  assert.deepStrictEqual(['volUnlocked', 'reflectionMsaa', 'treeTess'].map(st), ['change', 'change', 'change']);
+  assert.deepStrictEqual(['texture', 'aniso', 'msaa', 'screenType', 'vsync', 'api'].map(st), ['ok', 'ok', 'ok', 'ok', 'ok', 'ok']);
+  assert.strictEqual(st('waterReflection'), 'na', 'aralık dışı tercih ayarı değiştir denmez');
+  assert.strictEqual(st('lighting'), 'unknown', 'dosyada olmayan ayar');
+  assert.strictEqual(gs.change, gs.items.filter(i => i.state === 'change').length);
+  assert.deepStrictEqual(gs.groups.map(x => x[0]), ['Display', 'Graphics', 'Advanced Graphics']);
+  const en = rec('en').gameSettings;
+  assert.deepStrictEqual(en.items.map(i => i.state), gs.items.map(i => i.state));
+  assert.ok(!/[çğıöşüÇĞİÖŞÜ]/.test(JSON.stringify(en)), 'İngilizce çıktıda Türkçe metin');
+  assert.strictEqual(recFor(sys, 'Cyberpunk 2077').r.gameSettings, null);
 });
 t('Süreç listesi: tasklist CSV', () => {
   const { parseTasklist } = require('../src/core/procs');

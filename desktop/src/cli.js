@@ -60,6 +60,11 @@ const flag = (...ks) => ks.some(k => args.includes(k));
       const now = i.state === 'change' ? `  ← ${t('cli.now')}: ${i.cur}` : i.state === 'unknown' ? `  (${t('cli.unread')}${i.raw ? `: ${i.raw}` : ''})` : '';
       console.log(`    ${mark[i.state] || '-'} ${i.k}: ${i.v}${now}`);
     }
+    const gs = g.rec.gameSettings;
+    if (gs) {
+      console.log(`  ${gs.title}`);
+      for (const i of gs.items) console.log(`    ${mark[i.state] || '-'} ${i.k}: ${i.v}${i.state === 'change' ? `  ← ${t('cli.now')}: ${i.cur}` : i.cur != null && i.cur !== i.v ? `  (${i.cur})` : ''}`);
+    }
     for (const n of g.rec.notes) console.log('  ' + t('cli.note') + n);
   }
 })().catch(e => { console.error(e); process.exit(1); });

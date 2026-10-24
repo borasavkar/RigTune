@@ -10,6 +10,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const rdr2 = require('./engine/games/rdr2');
 
 // Sonuç biçimi:
 // { kind, file, at (dosyanın kayıt zamanı), v: { res: {w,h}, display: 'fullscreen'|'borderless'|'windowed', vsync, cap
@@ -99,12 +100,21 @@ function parseRdr2(text) {
   const x = {};
   for (const m of text.matchAll(/<(\w+)\s+value="([^"]*)"\s*\/>/g)) if (!(m[1] in x)) x[m[1]] = m[2];
   const vs = num(x.vSync);
+  // Oyunun menüsüyle doğrulananlar (Bora'nın ekran görüntüleri, 24 Ekim 2026): windowed=2 "Windowed Borderless",
+  // fsr2Index=1 "AMD FSR 2: Quality" (dlssIndex=0). Diğer değerler doğrulanmadı; dosyadaki hâliyle kalır.
+  const win = num(x.windowed), fsr = num(x.fsr2Index);
   return clean({
     kind: 'rdr2',
+    // Menüdeki bütün grafik ayarları (engine/games/rdr2.js)
+    all: rdr2.readAll(text),
     v: {
       res: resOf(num(x.screenWidth), num(x.screenHeight)),
+      display: win === 2 ? 'borderless' : undefined,
       vsync: vs === undefined ? undefined : vs !== 0,
       hdr: bool(x.hdr),
+      // Oyunun menüsünde kare üretimi seçeneği yok.
+      fg: false,
+      up: fsr === 1 ? { kind: 'fsr', gen: '2', mode: 'q', src: 'fsr2Index=1' } : undefined,
     },
     raw: { display: rawOf(x, ['windowed']), up: rawOf(x, ['fsr2Index', 'dlssIndex']) },
   });

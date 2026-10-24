@@ -116,10 +116,16 @@ function ingameView(g) {
   return `<div class="drvsum ${ch.length ? 'has' : 'ok'}"><div class="ic">${ch.length ? I.alert : I.check}</div><div><b>${esc(ch.length ? t('ig.sumChange', { n: ch.length }) : t('ig.sumOk'))}</b>${lines.map(l => `<p>${esc(l)}</p>`).join('')}</div></div>`
     + grp(t('drv.change'), ch) + grp(t('ig.unknown'), un) + grp(t('ig.other'), na)
     + (ok.length ? `<details class="okgrp"${UI.okOpen ? ' open' : ''}><summary class="group-t">${I.check}${esc(t('drv.ok', { n: ok.length }))}</summary><div class="rows">${ok.map(stateRow).join('')}</div></details>` : '')
-    + (tips.length ? rows(tips) : '');
+    + (tips.length ? rows(tips) : '') + gameSettingsView(r.gameSettings);
+}
+// Oyunun menüsündeki bütün grafik ayarları (engine/games/*), menüdeki sırayla; değiştirilecekler belirgin.
+function gameSettingsView(gs) {
+  if (!gs) return '';
+  const head = `<div class="group-t" style="margin-top:22px">${esc(gs.title)}${gs.change ? ` · <span class="cnt">${gs.change}</span>` : ''}</div><p class="muted-note" style="margin:0 0 8px">${esc(gs.lead)}</p>`;
+  return head + gs.groups.map(([title, list]) => (list.length ? `<div class="group-t">${esc(title)}</div><div class="rows">${list.map(stateRow).join('')}</div>` : '')).join('');
 }
 const drvCount = g => (g.rec.driver && g.rec.driver.state ? g.rec.driver.state.change : 0);
-const igCount = g => (g.rec.ingameState ? g.rec.ingameState.change : 0);
+const igCount = g => (g.rec.ingameState ? g.rec.ingameState.change : 0) + (g.rec.gameSettings ? g.rec.gameSettings.change : 0);
 const changeCount = g => drvCount(g) + igCount(g);
 
 // ---------- iskelet ----------

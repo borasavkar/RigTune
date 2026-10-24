@@ -1,4 +1,5 @@
 'use strict';
+const { rdr2Settings } = require('./games/rdr2');
 // Oyun içi ayar önerileri: ekran modu, ön ayar, doku, ışın izleme, ölçekleyici, kare üretimi, gecikme, senkronizasyon, HDR.
 // Oyunun kendi ayar dosyası okunabildiyse (g.cfg, core/gamecfg.js) satırlara şu anki değer ve durum eklenir (compare).
 
@@ -60,7 +61,9 @@ function ingame(g, c, L, need, pick, over) {
   else if (hdr.supported) add('hdr', off, 'off', t('ingame.hdr.off'));
   if (rk) add('blur', off, 'off', t('ingame.blur'));
   for (const tip of g.tips || []) S.push({ id: 'tip', k: t('ingame.k.tip'), v: '—', c: 'set', why: tip, tip: true });
-  return { items: S, state: compare(S, g, c, need, pick) };
+  // Oyuna özel bütün ayarlar (şimdilik Red Dead Redemption 2)
+  const game = g.cfg && !g.cfg.error && g.cfg.kind === 'rdr2' && g.cfg.all ? rdr2Settings(g.cfg, c, L, need) : null;
+  return { items: S, state: compare(S, g, c, need, pick), game };
 }
 
 // Satırlara oyunun ayar dosyasındaki değeri (cur) ve durumu (state) ekler; engine/amd.js'deki compare ile aynı anlamlar:

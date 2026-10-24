@@ -68,7 +68,7 @@ function recommend(g, c) {
   return {
     L, over, need, perf: over ? t('levelOver') : t('levels')[L],
     driver: driver && { app: driver.app, path: driver.path, items: driver.items, groups: driver.groups, state: driver.state || null },
-    ingame: ig.items, ingameState: ig.state,
+    ingame: ig.items, ingameState: ig.state, gameSettings: ig.game,
     notes, tags: tagsOf(g, c, hw).concat(meas ? [{ t: meas.tag, k: meas.verdict === 'low' ? 'w' : 'a' }] : []),
     disk: hw.disk, hdd: hw.hdd,
     measured: meas && { fps: meas.fps, p95: meas.p95, fg: meas.fg, at: meas.at, verdict: meas.verdict },
