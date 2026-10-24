@@ -184,6 +184,22 @@ function notifyChanges(items) {
   });
   n.on('click', () => showWindow('changes'));
   n.show();
+  setTimeout(fixPortableShortcut, 2000);
+}
+
+// Taşınabilir sürüm: Electron bildirim gösterebilmek için Başlat menüsüne uygulama kimliğiyle (tr.savkar.rigtune) bir
+// kısayol yazar ve hedefini çalışan exe yapar; taşınabilir sürümde bu, kapanınca silinen Temp klasöründeki kopyadır.
+// Windows görev çubuğu aynı kimlikte bir Başlat menüsü kısayolu varsa sabitleme ve yeniden açma için pencerenin
+// setAppDetails ayarlarını değil o kısayolu kullanır; sabitlenen simge bu yüzden açılmıyordu (24 Ekim 2026'da görüldü).
+// Kısayol varsa hedefi taşınabilir exe'nin kendisine çevrilir; uygulama kimliği ve bildirim kimliği (CLSID) korunur.
+function fixPortableShortcut() {
+  const exe = process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE;
+  if (!exe) return;
+  const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${app.getName()}.lnk`);
+  let cur;
+  try { cur = shell.readShortcutLink(lnk); } catch { return; /* kısayol yok */ }
+  if (cur.target && path.normalize(cur.target).toLowerCase() === path.normalize(exe).toLowerCase()) return;
+  try { shell.writeShortcutLink(lnk, 'update', { target: exe, cwd: path.dirname(exe), icon: exe, iconIndex: 0, description: analyzer.t('app.name') }); } catch { /* yazılamadı */ }
 }
 
 function registerProtocol() {
@@ -285,4 +301,5 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => debouncedScan('resume'));
   schedule();
   watchAmd();
+  fixPortableShortcut();
 });
