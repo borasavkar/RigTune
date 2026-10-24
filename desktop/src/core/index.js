@@ -10,6 +10,8 @@ const engine = require('./engine');
 const { fingerprint, diff, changeText } = require('./changes');
 const steamstore = require('./steamstore');
 const { LOW_FREE } = require('./engine/hardware');
+const gamecfg = require('./gamecfg');
+const { runningGames } = require('./procs');
 const { LOCALES, LANGS, resolveLang, translator } = require('../locales');
 
 const DEFAULTS = {
@@ -42,6 +44,8 @@ class Analyzer extends EventEmitter {
     this.snapshot = this.store.read('snapshot', null);
     this.changes = this.store.read('changes', []);
     this.sys = null; this.lib = null; this.probes = {};
+    // Oyunların kendi ayar dosyalarından okunanlar (oyun kimliği → sonuç) ve şu an açık oyunlar
+    this.cfg = {}; this.running = new Set(); this.pidCache = new Map();
     this.state = null; this.busy = null; this.lastScan = null; this.progress = null;
   }
 
@@ -69,6 +73,7 @@ class Analyzer extends EventEmitter {
     this.probeCache = probes;
     this.store.write('cache-probe', probes);
     this.sys = sys; this.lib = lib; this.probes = probes;
+    this.cfg = gamecfg.readAll(lib.games, probes, sys._paths, this.cfg);
 
     const snap = fingerprint(sys, lib);
     const items = this.snapshot ? diff(this.snapshot, snap).map(i => ({ ...i, text: changeText(i, this.t) })) : [];
@@ -102,6 +107,36 @@ class Analyzer extends EventEmitter {
     } catch { return false; } finally { this.refreshingAmd = false; }
   }
 
+  // Oyunların ayar dosyaları yeniden okunur (oyun açılıp kapanınca, dosya değişince, pencereye dönünce). ids verilmezse hepsi.
+  // Dosyası değişmeyen oyun yeniden çözülmez; bir şey değiştiyse öneriler yeniden kurulur.
+  refreshConfigs(ids) {
+    if (!this.lib || this.busy) return false;
+    const games = ids ? this.lib.games.filter(g => ids.includes(g.id)) : this.lib.games;
+    const next = gamecfg.readAll(games, this.probes, this.sys._paths, this.cfg);
+    let changed = false;
+    for (const g of games) {
+      if (next[g.id] !== this.cfg[g.id]) changed = true;
+      if (next[g.id]) this.cfg[g.id] = next[g.id]; else delete this.cfg[g.id];
+    }
+    if (changed) this.build();
+    return changed;
+  }
+
+  // Kütüphanedeki hangi oyunlar şu an açık (yalnızca Windows). Değişiklik varsa açılan ve kapanan oyunlar döner.
+  async checkRunning() {
+    if (!this.lib || process.platform !== 'win32') return null;
+    const now = await runningGames(this.lib.games, this.probes, this.pidCache);
+    if (!now) return null;
+    const started = [...now].filter(id => !this.running.has(id)), stopped = [...this.running].filter(id => !now.has(id));
+    if (!started.length && !stopped.length) return null;
+    this.running = now;
+    if (!this.refreshConfigs([...started, ...stopped])) this.build();
+    return { started, stopped };
+  }
+
+  // Açık oyunların ayar dosyaları (canlı izleme için).
+  runningConfigFiles() { return [...this.running].map(id => this.cfg[id] && this.cfg[id].file).filter(Boolean); }
+
   // Veritabanında olmayan oyunlar için mağaza bilgisi (sırayla, önbellekli).
   async fetchMeta() {
     if (!this.lib || this.fetchingMeta) return;
@@ -129,10 +164,11 @@ class Analyzer extends EventEmitter {
       const meta = this.metaCache[g.id] && !this.metaCache[g.id].none ? this.metaCache[g.id] : null;
       const probe = this.probes[g.id];
       const p = engine.buildProfile(g, db, probe, meta, s.overrides[g.id], lang);
+      p.cfg = this.cfg[g.id] || null;
       if (!g.name && p.n) g.name = p.n;
       return {
         id: g.id, name: p.n, source: g.source, sourceName: srcName(g.source), alsoIn: (g.alsoIn || []).map(srcName), installDir: g.installDir, accessible: g.accessible,
-        lastPlayed: g.lastPlayed || null, appid: g.appid || (meta && meta.appid) || null, hasImage: !!g.image, image: g.image || null,
+        lastPlayed: g.lastPlayed || null, running: this.running.has(g.id), appid: g.appid || (meta && meta.appid) || null, hasImage: !!g.image, image: g.image || null,
         profile: { t: p.t, y: p.y, f: p.f, c60: p.c60, ac: p.ac, est: p.est, inDb: p.inDb, probed: p.probed, eng: p.eng, ov: p.ov },
         probe: probe && !probe.error ? { files: probe.files, scanned: probe.scanned, truncated: probe.truncated, dlssVersion: probe.dlssVersion, xessVersion: probe.xessVersion, fsrFileVersion: probe.fsrFileVersion } : null,
         rec: engine.recommend(p, c),
@@ -145,7 +181,7 @@ class Analyzer extends EventEmitter {
       return { id: 'db:' + x.n, name: x.n, source: 'db', sourceName: t('sources.catalog'), alsoIn: [], accessible: false, catalog: true, appid: x.ids && x.ids.steam, profile: { t: p.t, y: p.y, f: p.f, c60: p.c60, ac: p.ac, est: p.est, inDb: true, probed: false, ov: p.ov }, rec: engine.recommend(p, c) };
     });
     const pub = { ...sys };
-    delete pub._uninstall; delete pub._hints;
+    delete pub._uninstall; delete pub._hints; delete pub._paths;
     // Algılamadan gelen dilden bağımsız etiketler arayüz için çevrilir.
     pub.gpus = sys.gpus.map(g => ({ ...g, arch: archLabel(g, t) }));
     pub.displays = sys.displays.map(d => ({ ...d, connection: CONN.includes(d.connection) ? t('detect.conn.' + d.connection) : d.connection }));

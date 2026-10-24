@@ -208,6 +208,8 @@ async function detectWindows() {
     errors: sys.errors || [],
     _uninstall: sys.uninstall || [],
     _hints: hints || {},
+    // Oyunların ayar dosyaları için Belgeler ve Yerel Uygulama Verileri klasörleri (core/gamecfg.js)
+    _paths: sys.paths || {},
   };
 }
 

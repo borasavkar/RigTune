@@ -54,7 +54,12 @@ const flag = (...ks) => ks.some(k => args.includes(k));
         console.log(`    ${mark[i.state] || '-'} ${i.k}: ${i.v}${now}`);
       }
     }
-    console.log('  ' + t('cli.ingame')); for (const i of g.rec.ingame) console.log(`    - ${i.k}: ${i.tip ? i.why : i.v}`);
+    console.log('  ' + t('cli.ingame'));
+    for (const i of g.rec.ingame) {
+      if (i.tip) { console.log(`    - ${i.k}: ${i.why}`); continue; }
+      const now = i.state === 'change' ? `  ← ${t('cli.now')}: ${i.cur}` : i.state === 'unknown' ? `  (${t('cli.unread')}${i.raw ? `: ${i.raw}` : ''})` : '';
+      console.log(`    ${mark[i.state] || '-'} ${i.k}: ${i.v}${now}`);
+    }
     for (const n of g.rec.notes) console.log('  ' + t('cli.note') + n);
   }
 })().catch(e => { console.error(e); process.exit(1); });

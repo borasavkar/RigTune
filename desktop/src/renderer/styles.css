@@ -176,6 +176,7 @@ h2.sec{font:600 12px/1 var(--font);letter-spacing:.09em;text-transform:uppercase
 .chip.a{background:var(--acc-soft);color:var(--acc-hi);border-color:transparent}
 .chip.w{background:var(--warn-bg);color:var(--warn);border-color:transparent}
 .chip.ok{background:var(--on-bg);color:var(--on);border-color:transparent}
+.chip.run{background:var(--on-bg);color:var(--on);border-color:transparent;vertical-align:middle;margin-right:6px}
 .chip svg{width:13px;height:13px}
 .pill{font:600 12.5px/1.35 var(--mono);border-radius:9px;padding:4px 10px;text-align:right;max-width:360px;justify-self:end;align-self:start}
 .pill.on{background:var(--on-bg);color:var(--on)}
@@ -197,6 +198,7 @@ h2.sec{font:600 12px/1 var(--font);letter-spacing:.09em;text-transform:uppercase
 .fchip[aria-pressed=true]{background:linear-gradient(180deg,var(--acc-hi),var(--acc));color:#fff;border-color:transparent;box-shadow:0 2px 0 var(--acc-deep),0 4px 12px var(--acc-glow)}
 .scroll{overflow:auto;min-height:0;flex:1;padding:8px}
 .grp{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);padding:12px 8px 6px}
+.grp.run{color:var(--on)}
 .gitem{all:unset;box-sizing:border-box;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;padding:8px;border-radius:15px;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
 .gitem:hover{background:var(--glass-2)}
 .gitem[aria-current=true]{background:linear-gradient(90deg,var(--acc-soft),transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent);box-shadow:inset 3px 0 0 var(--acc)}

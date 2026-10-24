@@ -1,5 +1,6 @@
 'use strict';
 // Oyun içi ayar önerileri: ekran modu, ön ayar, doku, ışın izleme, ölçekleyici, kare üretimi, gecikme, senkronizasyon, HDR.
+// Oyunun kendi ayar dosyası okunabildiyse (g.cfg, core/gamecfg.js) satırlara şu anki değer ve durum eklenir (compare).
 
 function ingame(g, c, L, need, pick, over) {
   const t = c.t;
@@ -59,7 +60,80 @@ function ingame(g, c, L, need, pick, over) {
   else if (hdr.supported) add('hdr', off, 'off', t('ingame.hdr.off'));
   if (rk) add('blur', off, 'off', t('ingame.blur'));
   for (const tip of g.tips || []) S.push({ id: 'tip', k: t('ingame.k.tip'), v: '—', c: 'set', why: tip, tip: true });
-  return S;
+  return { items: S, state: compare(S, g, c, need, pick) };
+}
+
+// Satırlara oyunun ayar dosyasındaki değeri (cur) ve durumu (state) ekler; engine/amd.js'deki compare ile aynı anlamlar:
+// change: değiştirilmeli · ok: zaten öyle · unknown: dosyada yok ya da anlamı doğrulanmamış (raw: dosyadaki hâli) ·
+// na: karşılaştırılmaz (ön ayar, doku ve ışın izleme gibi oyundan oyuna adı değişen kademeler).
+function compare(S, g, c, need, pick) {
+  const cfg = g.cfg;
+  if (!cfg || cfg.error) return null;
+  const t = c.t, v = cfg.v || {}, raw = { ...cfg.raw };
+  const on = t('eng.v.on'), off = t('eng.v.off');
+  const yn = b => (b ? on : off);
+  const d = c.display;
+  const native = d.native && d.native.w ? d.native : null;
+  const frtc = c.amd && c.amd.global ? c.amd.global.frtc : null;
+  const upText = u => (u.kind === 'off' ? off : `${t('ingame.cur.kind.' + u.kind)}${u.gen ? ' ' + u.gen : ''}${u.mode ? ' · ' + t('ingame.cur.mode.' + u.mode) : ''}`);
+  for (const i of S) {
+    if (i.tip) continue;
+    // r: [şu anki değer, uygun mu]; uygun mu: true/false, null = karşılaştırılmaz, undefined = okunamadı.
+    let r;
+    switch (i.id) {
+      case 'display':
+        r = v.display ? [t('ingame.cur.display.' + v.display), pick.rsr ? v.display === 'fullscreen' : v.display !== 'windowed'] : [null, undefined];
+        break;
+      case 'res':
+        // RSR'de oyun düşük çözünürlükte çalıştırılır; doğal çözünürlükle karşılaştırılmaz.
+        r = v.res ? [`${v.res.w}×${v.res.h}`, pick.rsr || !native ? null : v.res.w === native.w && v.res.h === native.h] : [null, undefined];
+        break;
+      case 'up': {
+        const u = v.up;
+        if (!u) { r = [null, undefined]; break; }
+        const wantOn = need && !pick.rsr && pick.up[0] !== t('eng.native');
+        const naa = u.mode === 'naa';
+        // Dosyadaki FSR sürümü önerilenden farklıysa (ör. AMD_FSR2_Quality, öneri FSR 3.1) karar verilmez: oyunun iç adı
+        // güncellemeden sonra eski kalmış olabilir; oyunun menüsünde kontrol edilir.
+        const recGen = { fsr4: '4', fsr31: '3', fsr31n: '3', fsr3: '3', fsr2: '2', fsr1: '1' }[g.f];
+        if (wantOn && u.kind === 'fsr' && u.gen && recGen && u.gen !== recGen) { r = [null, undefined]; raw.up = u.src; break; }
+        r = [upText(u), wantOn ? u.kind !== 'off' && !naa && (!u.mode || u.mode === 'q' || u.mode === 'uq') : u.kind === 'off' || naa];
+        break;
+      }
+      case 'fg':
+        r = v.fg === undefined ? [null, undefined] : [yn(v.fg), pick.fg.use === 'game' ? v.fg : pick.fg.optionalGame ? null : !v.fg];
+        break;
+      case 'latency':
+        r = v.latency === undefined ? [null, undefined] : [yn(v.latency), v.latency];
+        break;
+      case 'vsync':
+        r = v.vsync === undefined ? [null, undefined] : [yn(v.vsync), v.vsync === (i.v === on)];
+        break;
+      case 'fpsCap': {
+        if (v.cap === undefined) { r = [null, undefined]; break; }
+        const cur = v.cap === 0 ? t('eng.v.unlimited') : t('eng.v.fps', { n: v.cap });
+        const n = pick.cap.cap;
+        if (n == null) { r = [cur, null]; break; }
+        const inTol = v.cap > 0 && v.cap <= n && v.cap >= n - 4;
+        // Oyunda sınır yoksa (ya da öneriden yüksekse) Adrenalin'deki Kare Hızı Hedef Kontrolü (FRTC) öneriye uygunsa yeter.
+        // Sürücü kare üretiminde (AFMF) yarım sınır oyun içinden konur; FRTC bunun yerini tutmaz.
+        const byDriver = c.vrr && pick.fg.use !== 'driver' && frtc && frtc.on && frtc.fps != null && frtc.fps <= n && frtc.fps >= n - 4 && (v.cap === 0 || v.cap > n);
+        if (byDriver) i.why = t('ingame.capDriver', { n: frtc.fps }) + i.why;
+        r = [cur, inTol || byDriver || (!c.vrr && (v.cap === 0 || v.cap >= n - 4))];
+        break;
+      }
+      case 'hdr':
+        // Windows'ta HDR kapalıyken oyundaki HDR ayarı çoğu oyunda etkisizdir; karşılaştırılmaz.
+        r = v.hdr === undefined ? [null, undefined] : [yn(v.hdr), d.hdr && d.hdr.enabled ? v.hdr : null];
+        break;
+      default:
+        r = [null, null];
+    }
+    i.cur = r[0];
+    if (r[1] === undefined) { i.state = 'unknown'; if (raw[i.id]) i.raw = raw[i.id]; } else i.state = r[1] === null ? 'na' : r[1] ? 'ok' : 'change';
+  }
+  const n = s => S.filter(i => i.state === s).length;
+  return { kind: cfg.kind, file: cfg.file, at: cfg.at, change: n('change'), ok: n('ok'), unknown: n('unknown') };
 }
 
 module.exports = { ingame };

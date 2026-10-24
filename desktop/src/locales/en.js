@@ -387,6 +387,13 @@ module.exports = {
       off: 'The monitor supports HDR but it is off in Windows; the HDR option may not appear in the game.',
     },
     blur: 'Makes it harder to see targets during fast turns.',
+    capDriver: 'Frame Rate Target Control in Adrenalin ({n} FPS) already limits the frame rate; the in-game limit can be higher or off. ',
+    // Names of values read from the game's settings file
+    cur: {
+      display: { fullscreen: 'Fullscreen', borderless: 'Borderless window', windowed: 'Windowed' },
+      kind: { fsr: 'FSR', dlss: 'DLSS', xess: 'XeSS', tsr: 'TSR' },
+      mode: { q: 'Quality', uq: 'Ultra Quality', b: 'Balanced', p: 'Performance', up: 'Ultra Performance', naa: 'Native AA' },
+    },
   },
 
   global: {
@@ -590,6 +597,7 @@ module.exports = {
       tabIngame: 'In game', tabFiles: 'Detected',
       ingamePath: "The game's own graphics menu",
       ingameGroup: 'Recommended in-game settings',
+      running: 'Running now',
       filesHead: 'Libraries found in the game folder (items scanned: {n}{cut})',
       filesCut: ', stopped early due to the limit',
       dlssVer: 'DLSS file version', xessVer: 'XeSS file version', fsrVer: 'FSR (FidelityFX) file version',
@@ -602,6 +610,20 @@ module.exports = {
       edit: 'Fix profile', editTitle: 'Correct the genre, load and FSR information',
       openDir: 'Open game folder', hide: 'Hide this game from the list',
       disclaimer: 'Recommendations are rule-based: the game\'s genre, GPU load and supported technologies, your graphics card and your monitor are evaluated together. "Estimated status" is not a measurement; check real FPS with the driver app\'s performance overlay.',
+    },
+    // Comparison with the value in the game's own settings file (Games > In game)
+    ig: {
+      sumChange: 'Settings to change in the game: {n}',
+      sumOk: 'Your in-game settings match the recommendations',
+      sumUnknown: "{n} settings couldn't be read from the file; check them in the game (listed below).",
+      read: "Settings were read from the game's own file ({file}); the file was saved {t}.",
+      live: 'This page refreshes on its own when you save settings in the game. Most games save them when you leave the menu or quit.',
+      running: 'The game is running now.',
+      unknown: "Couldn't read from the file · check in the game",
+      raw: "The file says {raw}; the meaning of this value hasn't been verified.",
+      other: 'Other recommendations',
+      noFile: "This game's settings file isn't recognized; recommendations are shown without comparing them with your current settings.",
+      badge: '{n} in-game changes',
     },
     drv: {
       sumChange: 'Settings to change in Adrenalin: {n}',

@@ -62,6 +62,11 @@ const EXT = [
   [/-wingdk-shipping\.exe$/i, { engine: 'Unreal Engine', ver: 'unreal' }],
 ];
 const SKIP = /^(__installer|_commonredist|redist|directx|vcredist|movies|videos|shadercache|crashreport|logs|saves?|screenshots|\$recycle\.bin)$/i;
+// Oyunun kendisi olmayan exe dosyaları (kurulum, kaldırma, hata bildirimi, hile koruması servisi). Açık oyunu süreç adından
+// tanımak için toplanan exe listesine girmez.
+const NOT_GAME_EXE = /^(unins\d*|uninstall\w*|setup\w*|install\w*|vc_?redist\S*|dxsetup|dxwebsetup|crashreport\w*|crashpad_handler|crashsender\w*|unitycrashhandler(32|64)?|easyanticheat\S*|beservice\S*|eaanticheat\S*|ue4prereqsetup\S*|ueprereqsetup\S*|dotnet\S*|touchup|cleanup|quicksfv|cefsharp\S*|unrealcefsubprocess|epiconlineservices\S*)\.exe$/i;
+// Önbellekteki eski incelemeler bu sürümden eskiyse oyun yeniden incelenir (2: exe listesi eklendi).
+const PROBE_V = 2;
 
 // PE dosyasının kaynak bölümünden VS_FIXEDFILEINFO okur.
 async function peVersion(file) {
@@ -101,7 +106,7 @@ function apply(res, sig, full, versions) {
 }
 
 async function probeGame(dir, { maxEntries = 60000, maxDepth = 7 } = {}) {
-  const res = { antiCheat: [], engine: null, fsr: null, scanned: 0, truncated: false, files: [] };
+  const res = { antiCheat: [], engine: null, fsr: null, scanned: 0, truncated: false, files: [], exes: [] };
   const versions = {};
   const stack = [[dir, 0]];
   let unrealMarker = false;
@@ -121,6 +126,7 @@ async function probeGame(dir, { maxEntries = 60000, maxDepth = 7 } = {}) {
         if (depth < maxDepth && !SKIP.test(low)) stack.push([full, depth + 1]);
         continue;
       }
+      if (low.endsWith('.exe') && depth <= 5 && res.exes.length < 40 && !NOT_GAME_EXE.test(low)) res.exes.push(path.relative(dir, full));
       const sig = FILES[low];
       if (sig) { apply(res, sig, full, versions); res.files.push(path.relative(dir, full)); continue; }
       for (const [re, s] of EXT) if (re.test(low)) { apply(res, s, full, versions); break; }
@@ -155,7 +161,7 @@ async function probeAll(games, cache, { concurrency = 3, maxAgeMs = 14 * 864e5, 
     if (!g.accessible || !g.installDir) continue;
     let mtime = 0;
     try { mtime = fs.statSync(g.installDir).mtimeMs; } catch { /* yok */ }
-    const key = [g.installDir, g.buildId || g.version || '', Math.round(mtime)].join('|');
+    const key = [g.installDir, g.buildId || g.version || '', Math.round(mtime), PROBE_V].join('|');
     const c = cache[g.id];
     if (c && c.key === key && Date.now() - c.at < maxAgeMs) { out[g.id] = c; continue; }
     todo.push({ g, key });

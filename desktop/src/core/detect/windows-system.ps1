@@ -208,6 +208,9 @@ $ws.historicalCapture = RegVal 'HKCU:\Software\Microsoft\Windows\CurrentVersion\
 try { $ws.powerPlan = ((powercfg /getactivescheme) -replace '^.*\(', '' -replace '\)\s*$', '').Trim() } catch { }
 $out.winSettings = $ws
 
+# Oyunlarin ayar dosyalari icin klasorler (Belgeler OneDrive'a tasinmis olabilir)
+$out.paths = [ordered]@{ documents = [Environment]::GetFolderPath('MyDocuments'); localAppData = [Environment]::GetFolderPath('LocalApplicationData') }
+
 # NVIDIA icin ek bilgi (varsa)
 $smi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
 if (Test-Path $smi) {

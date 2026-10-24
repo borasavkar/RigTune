@@ -54,7 +54,7 @@ function createWindow(show) {
     if (!quitting && analyzer.settings.closeToTray && tray) { e.preventDefault(); win.hide(); }
   });
   win.on('closed', () => { win = null; });
-  win.on('focus', () => refreshAmdSoon());
+  win.on('focus', () => { refreshAmdSoon(); analyzer.refreshConfigs(); });
   // Taşınabilir sürüm her açılışta Temp'te rastgele adlı bir klasöre açılır, kapanınca o klasör silinir. Görev çubuğuna
   // sabitlenen simge o geçici yolu gösterirse uygulama kapanınca beyaz kağıt simgesine döner (22 Ekim 2026'da görüldü).
   // Sabitleme, simge ve yeniden açma komutu taşınabilir exe dosyasının kendisini göstersin; electron-builder bu yolu
@@ -99,6 +99,7 @@ function send(ch, data) { if (win && !win.isDestroyed()) win.webContents.send(ch
 
 function schedule() {
   clearInterval(timer); clearInterval(displayPoll);
+  watchGames();
   if (!analyzer.settings.watch) return;
   const min = Math.max(5, +analyzer.settings.intervalMin || 15);
   timer = setInterval(() => analyzer.scan('periodic').catch(() => {}), min * 60000);
@@ -132,6 +133,33 @@ function watchAmd() {
   const { files } = require('../core/detect/amd-settings');
   const f = files();
   for (const p of [f.apl, f.gex]) fs.watchFile(p, { interval: 2000 }, (cur, prev) => { if (cur.mtimeMs !== prev.mtimeMs) refreshAmdSoon(); });
+}
+
+// Oyun açılınca ve kapanınca oyunun kendi ayar dosyası yeniden okunur (Analyzer.checkRunning); oyun açıkken ayar dosyası da
+// izlenir ki oyunda kaydedilen değişiklik hemen görünsün. Süreç listesi 8 sn'de bir alınır (tasklist, yalnızca Windows).
+let gamePoll = null;
+const cfgWatched = new Set();
+function watchGames() {
+  clearInterval(gamePoll);
+  if (process.platform !== 'win32' || !analyzer.settings.watch) { syncCfgWatch(true); return; }
+  gamePoll = setInterval(checkGames, 8000);
+}
+async function checkGames() {
+  const r = await analyzer.checkRunning().catch(() => null);
+  if (!r) return;
+  if (process.env.OAR_DEBUG) console.log('[oyun]', new Date().toISOString(), 'açılan', r.started, 'kapanan', r.stopped);
+  // Çoğu oyun ayarları kapanırken yazar; dosya süreç bittikten hemen sonra değişebilir.
+  if (r.stopped.length) setTimeout(() => analyzer.refreshConfigs(r.stopped), 4000);
+  syncCfgWatch();
+}
+function syncCfgWatch(none) {
+  const want = new Set(none ? [] : analyzer.runningConfigFiles());
+  for (const f of cfgWatched) if (!want.has(f)) { fs.unwatchFile(f); cfgWatched.delete(f); }
+  for (const f of want) {
+    if (cfgWatched.has(f)) continue;
+    cfgWatched.add(f);
+    fs.watchFile(f, { interval: 2000 }, (cur, prev) => { if (cur.mtimeMs !== prev.mtimeMs) setTimeout(() => analyzer.refreshConfigs(), 500); });
+  }
 }
 
 function applySettings(patch) {
@@ -221,7 +249,7 @@ app.whenReady().then(() => {
   analyzer.on('changes', items => { send('changes', items); notifyChanges(items); });
   createWindow(!(hiddenStart && analyzer.settings.watch));
   try { buildTray(); } catch { tray = null; }
-  analyzer.scan(hiddenStart ? 'login' : 'startup').catch(e => send('error', e.message));
+  analyzer.scan(hiddenStart ? 'login' : 'startup').then(() => checkGames()).catch(e => send('error', e.message));
   if (SHOT) {
     analyzer.once('state', async () => {
       const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -229,9 +257,11 @@ app.whenReady().then(() => {
       fs.mkdirSync(SHOT, { recursive: true });
       const pages = (process.env.OAR_SHOT_PAGES || 'overview,games,global,changes,settings').split(',');
       for (const p of pages) {
-        const [page, extra] = p.split(':');
+        // sayfa[:oyun[:sekme]] — ör. games:Witcher:ingame
+        const [page, extra, tab] = p.split(':');
         win.webContents.send('navigate', page);
         if (extra) await win.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-game*=${JSON.stringify(extra)}]')||[...document.querySelectorAll('[data-game]')].find(x=>x.textContent.includes(${JSON.stringify(extra)}));b&&b.click();return !!b})()`);
+        if (tab) { await wait(300); await win.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-tab=${JSON.stringify(tab)}]');b&&b.click();return !!b})()`); }
         await wait(900);
         win.webContents.invalidate();
         await win.webContents.capturePage();

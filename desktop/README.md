@@ -36,7 +36,8 @@ Bir kez yapılacak genel ayarları ve Windows kontrollerini de gösterir. Donan�
    - Sistem diskinde ya da oyun bulunan bir diskte boş alan %10'un altına inerse uyarı verilir (Windows Gezgini de bu sınırda sürücüyü kırmızı gösterir).
    - Steam mağaza bilgisi alınan oyunlarda en düşük ve önerilen bellek gereksinimi bilgisayardaki bellekle karşılaştırılır.
 5. **Değişiklik izleme:** Açılışta ve ayarlanan aralıkta kontrol yapılır. Monitör değişince ve bilgisayar uykudan uyanınca da kontrol edilir. Fark varsa Geçmiş bölümüne yazılır ve bildirim gösterilir.
-6. **Adrenalin'deki mevcut ayarlar (AMD, Windows):** Oyun profilleri (`%LOCALAPPDATA%\ATI\ACE\APL\User.blb`), genel ayarlar (kayıt defteri ve `%LOCALAPPDATA%\AMD\CN\GExDb.blb`) okunur ve her öneri şu anki değerle karşılaştırılır. Adrenalin sekmesinde önce değiştirilmesi gereken ayarlar "şu an → öneri" biçiminde görünür. Ardından okunamayanlar gelir; zaten doğru olanlar katlı bir listede durur. Oyun listesindeki rozet, o oyunda kaç ayarın değişeceğini gösterir. Adrenalin'de bir şey değiştirince uygulama kendini yeniler. Radeon Super Resolution ve genel AFMF okunamıyor; bunlar "Adrenalin'de kontrol et" olarak gösterilir.
+6. **Adrenalin'deki mevcut ayarlar (AMD, Windows):** Oyun profilleri (`%LOCALAPPDATA%\ATI\ACE\APL\User.blb`), genel ayarlar (kayıt defteri ve `%LOCALAPPDATA%\AMD\CN\GExDb.blb`) okunur ve her öneri şu anki değerle karşılaştırılır. Adrenalin sekmesinde önce değiştirilmesi gereken ayarlar "şu an → öneri" biçiminde görünür. Ardından okunamayanlar gelir; zaten doğru olanlar katlı bir listede durur. Oyun listesindeki rozet, o oyunda kaç ayarın değişeceğini gösterir. Adrenalin'de bir şey değiştirince uygulama kendini yeniler. Radeon Super Resolution ve AFMF, Adrenalin'in oyun listesinden (`%LOCALAPPDATA%AMDCNgmdb.blb`) okunur.
+7. **Oyunun kendi ayarları (Windows):** Ayar dosyası tanınan oyunlarda oyun içi öneriler de şu anki değerle karşılaştırılır. Şu an tanınanlar: The Witcher 3 (`BelgelerThe Witcher 3dx12user.settings`), Red Dead Redemption 2 (`BelgelerRockstar GamesRed Dead Redemption 2Settingssystem.xml`) ve Unreal Engine oyunları (`%LOCALAPPDATA%<oyun>SavedConfigWindowsGameUserSettings.ini`). Yalnızca anlamı kesin değerler çözülür (çözünürlük, ekran modu, VSync, FPS sınırı, HDR, kare üretimi, gecikme azaltma, adı kendini anlatan ölçekleyici); anlamı doğrulanmamış sayısal kodlar (ör. Witcher 3'te `AAMode=5`) dosyadaki hâliyle "oyunda kontrol et" olarak gösterilir. Uygulama süreç listesine 8 saniyede bir bakar: kütüphanedeki bir oyun açılınca ya da kapanınca ayar dosyası yeniden okunur, oyun açıkken dosya izlenir ve oyun listesinin en üstünde "Şu an açık" grubunda görünür.
 
 ## Dil
 
@@ -44,7 +45,7 @@ Arayüz, öneriler, tepsi menüsü ve bildirimler Türkçe ya da İngilizce olab
 
 ## Gizlilik
 
-- Uygulama hiçbir ayarı değiştirmez, yalnızca okur (Adrenalin'in ayar dosyaları ve kayıt defteri dahil).
+- Uygulama hiçbir ayarı değiştirmez, yalnızca okur (Adrenalin'in ayar dosyaları, kayıt defteri ve oyunların kendi ayar dosyaları dahil).
 - İnternete yalnızca "Oyun bilgisini Steam mağazasından tamamla" açıkken çıkar. Bu durumda veritabanında olmayan oyunların adı ya da Steam numarası gönderilir; dönen bilgiden tür, önerilen sistem ve bellek/SSD gereksinimi alınır. Kapak resimleri de bu ayara bağlıdır.
 - Veriler `%APPDATA%\RigTune\` klasöründe durur. Uygulamanın eski adı "Oyun Ayar Rehberi" idi; o addaki klasör varsa ayarlar ve geçmiş ilk açılışta buraya kopyalanır, eski klasör silinmez.
 

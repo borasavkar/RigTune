@@ -143,7 +143,9 @@ Not: Oyunların özellik tabloları kural tabanlı tahmindir, ölçüm değildir
 | `src/core/gpudb.js` | Model → mimari, yaklaşık güç sınıfı (RX 9070 XT = 100), özellikler |
 | `src/core/cpudb.js` | İşlemci modeli → mimari, mimarinin ilk çıktığı yıl, 3D V-Cache (X3D), kısa ad. Puan yok (bkz. "İşlemci, bellek ve disk analizi") |
 | `src/core/libraries/*` | Başlatıcı tarayıcıları, VDF çözücü, klasör ve Playnite tarayıcısı |
-| `src/core/probe.js` | Oyun klasörü incelemesi ve PE dosya sürümü okuma |
+| `src/core/probe.js` | Oyun klasörü incelemesi ve PE dosya sürümü okuma; oyunun exe dosyaları (`exes`) |
+| `src/core/gamecfg.js` | Oyunların kendi ayar dosyalarını okur (Witcher 3, RDR2, Unreal Engine); bkz. "Oyun ayar dosyalarını okuma" |
+| `src/core/procs.js` | Kütüphanedeki hangi oyunların açık olduğu (tasklist + yeni süreçlerin yolu) |
 | `src/core/gamedb.js` | Oyun veritabanı (eski `G` dizisi + yeni alanlar). `no` genel not, `noAmd` yalnızca AMD'de gösterilen not, `en: { no, noAmd, tips }` İngilizce karşılıkları, `ow` açık dünya, `cpu` işlemciye bağlı (1) ya da değil (0) |
 | `src/core/engine/common.js` | Profil birleştirme, yük seviyesi, ölçekleme ihtiyacı, kare üretimi ve FPS sınırı planı |
 | `src/core/engine/amd.js` | Eski `rec()` fonksiyonunun taşınmış hâli |
@@ -216,6 +218,17 @@ Bora'nın sorusu üzerine eklendi: önceden yalnızca ekran kartı ve monitör �
 - **Değişiklik geçmişi:** disk takılıp çıkarılması izlenir (`diskNew`, `diskRemoved`). USB, SD ve sanal diskler sayılmaz. Eski anlık görüntülerde disk bilgisi yoksa karşılaştırılmaz.
 - **Arayüz:** Özet'te işlemci kartına mimari, L3 ve 3D V-Cache; ayrı Diskler kartı (birim, tür, doluluk çubuğu, boş alan, o diskteki oyun sayısı). Komut satırı işlemci, bellek ve diskleri de yazar.
 
+### Oyun ayar dosyalarını okuma (0.1.9, 22–24 Ekim 2026)
+
+Bora'nın isteği: "bir oyunu açtığımda program oyun ayarlarını okusun". Uygulama yalnızca okur; oyun dosyalarına yazmaz.
+
+- **Okunan dosyalar** (`core/gamecfg.js`): The Witcher 3 `BelgelerThe Witcher 3dx12user.settings` (yoksa `user.settings`; hangisi yeniyse), Red Dead Redemption 2 `BelgelerRockstar GamesRed Dead Redemption 2Settingssystem.xml`, Unreal Engine oyunları `%LOCALAPPDATA%<ad>SavedConfigWindows|WindowsNoEditor|WinGDKGameUserSettings.ini` (ve `BelgelerMy Games<ad>…`). Belgeler klasörü `windows-system.ps1`'den (`paths`, OneDrive'a taşınmış olabilir) gelir. Unreal klasör adı oyunun exe adından (`-Win64-Shipping` olmadan) ya da `Binaries` üstündeki proje klasöründen türetilir; LocalAppData listelenmez, yalnızca bu adlardaki yollara bakılır.
+- **Yalnızca anlamı kesin değerler çözülür:** çözünürlük; Unreal `FullscreenMode` (motorun EWindowMode sırası: 0 tam ekran, 1 kenarlıksız, 2 pencere); VSync (`VSync`, `bUseVSync`, RDR2 `vSync` 0 = kapalı); FPS sınırı (`FrameRateLimit` 0 = sınırsız, Witcher `[Engine] LimitFPS`); HDR (`HdrEnabled`, `bUseHDRDisplayOutput`, RDR2 `hdr`); kare üretimi (`FSRFramegen` 0/1, `FrameGeneration…Enabled`, `FrameGeneration=(Mode=Off,…)`); gecikme (`AMDAntiLag` 0/1); adı kendini anlatan ölçekleyici (`UpscaleMode=AMD_FSR2_Quality`). **Doğrulanmayanlar** dosyadaki hâliyle "Dosyadan okunamadı · oyunda kontrol et" grubunda gösterilir: Witcher 3 `FullScreenMode`, `AAMode`, `FSR2Quality`; RDR2 `windowed`, `fsr2Index`, `dlssIndex`; Gothic 1 Remake `UpscalingMethod`, `UpscalingQualityFSR`. Witcher 3'te `LimitFPS`in "sınırsız" için hangi sayıyı yazdığı bilinmiyor; değer sayı olarak gösterilir.
+- **Karşılaştırma** (`engine/ingame.js` > `compare`): satırlara `cur`, `state` ve gerekirse `raw` eklenir; `rec.ingameState` sayıları verir. Ön ayar, doku, ışın izleme ve hareket bulanıklığı karşılaştırılmaz ("Diğer öneriler"). Windows'ta HDR kapalıyken oyundaki HDR karşılaştırılmaz. Oyunda FPS sınırı yoksa ya da öneriden yüksekse, Adrenalin'deki genel Kare Hızı Hedef Kontrolü öneriye uygunsa "doğru" sayılır; AFMF önerilen oyunda yarım sınır oyun içinden konmalıdır. RSR önerilen oyunda çözünürlük karşılaştırılmaz. Dosyadaki FSR sürümü önerilenden farklıysa (ör. dosyada AMD_FSR2_Quality, öneri FSR 3.1) karar verilmez: oyunun iç adı güncellemeden sonra eski kalmış olabilir.
+- **Açık oyun** (`core/procs.js`, `main.js` > `watchGames`): ayar "Değişiklikleri izle" açıkken 8 sn'de bir `tasklist` alınır. Adı bir oyunun exe listesindeki (`probe.exes`; kurulum, kaldırma, hata bildirimi ve hile koruması exe'leri hariç) bir adla eşleşen yeni sürecin yolu bir kez PowerShell `Get-Process` ile sorulur ve oyunun klasörüyle karşılaştırılır (yol okunamazsa ad tek bir oyuna aitse kabul edilir). Oyun açılınca ve kapanınca (4 sn sonra bir kez daha) ayar dosyası okunur; açıkken dosya 2 sn aralıkla izlenir; pencereye dönünce de okunur. Oyun listesinde "Şu an açık" grubu ve başlıkta etiket. 22 Ekim 2026'da Witcher 3 açıkken denendi: yol eşleşmesiyle bulundu (ilk sorgu ~0,7 sn, sonraki ~0,4 sn).
+- **Probe sürümü:** exe listesi için `PROBE_V = 2`; eski önbellek kayıtları bir kez yeniden incelenir.
+- **Arayüz:** Oyun içi sekmesinde Adrenalin sekmesiyle aynı düzen (özet kutusu, Değiştir, Dosyadan okunamadı, Diğer öneriler, katlı Zaten doğru, ipuçları). Sekme düğmesinde ve oyun listesindeki rozette oyun içi değişiklikler de sayılır. Dosyası tanınmayan oyunda eski görünüm ve "Bu oyunun ayar dosyası tanınmıyor" notu. Ekran görüntüsü aracı `OAR_SHOT_PAGES="games:Witcher:ingame"` ile sekme de seçebilir.
+
 ### Eski sayfadan taşınırken değişen kurallar
 
 - FSR 4 yükseltmesinin adı Adrenalin'de artık "AMD FSR Upscaling". RX 9000'de ML kare üretimi için "AMD FSR Frame Generation" satırı eklendi (oyunda FSR 3.1.4+ gerekir).
@@ -241,3 +254,4 @@ Bora'nın sorusu üzerine eklendi: önceden yalnızca ekran kartı ve monitör �
 10. İşlemci için sayısal oyun sınıfı (gpudb'deki gibi puan) ancak kaynağı gösterilebilen bir karşılaştırma tablosuyla eklenir; "işlemci ekran kartını sınırlıyor" kontrolü de bir eşik ister. İkisi de Bora'nın onayı ve kaynağı olmadan yapılmaz.
 11. Oyun klasörü incelemesinde motor yanlış çıkabiliyor: Age of Empires II DE "Godot", Bannerlord "Unity 2021.3" olarak görünüyor (22 Ekim 2026). `probe.js` motor tespiti gözden geçirilmeli.
 12. Steam mağazasında adla arama yanlış oyunu bulabiliyor: Epic'teki RAVEN2, "Mystery Solitaire. The Black Raven 2" ile eşleşti. Tür, yük ve bellek notu bu yanlış bilgiden üretilir; adla eşleşmenin doğrulanması gerekir.
+13. Oyun ayar dosyalarında doğrulanmayan değerlerin anlamını bul (Witcher 3 `FullScreenMode`, `AAMode`, `FSR2Quality`, `LimitFPS` sınırsız değeri; RDR2 `windowed`, `fsr2Index`; Gothic 1 Remake `UpscalingMethod`). Yöntem Adrenalin'deki gibi: oyunda tek ayarı değiştir, dosyanın önceki ve sonraki hâlini karşılaştır. Bora yapar ya da onay verir; tahminle eşlenmez.

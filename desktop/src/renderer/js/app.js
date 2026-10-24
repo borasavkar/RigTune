@@ -79,7 +79,9 @@ function stateRow(i) {
     : i.state === 'change' ? `<span class="now" title="${esc(t('drv.now'))}">${esc(i.cur)}</span>${I.arrow}` : '';
   // Bilgi satırlarında ve öneriyle tam aynı yazılmayan doğru satırlarda (ör. netlik %20, öneri %30–40) şu anki değer de yazılır.
   const info = (i.state === 'na' || i.state === 'ok') && i.cur != null && i.cur !== i.v ? `<b>${esc(t('drv.now'))}:</b> ${esc(i.cur)}. ` : '';
-  return `<div class="row st-${esc(i.state)}"><div class="k">${name}</div><div class="vals">${now}${pill(i.v, i.state === 'change' ? 'go' : i.c)}</div><div class="why">${info}${esc(i.why)}</div></div>`;
+  // Oyun ayar dosyasında bulunan ama anlamı doğrulanmamış değer (ör. AAMode=5) olduğu gibi gösterilir.
+  const raw = i.raw ? `${esc(t('ig.raw', { raw: i.raw }))} ` : '';
+  return `<div class="row st-${esc(i.state)}"><div class="k">${name}</div><div class="vals">${now}${pill(i.v, i.state === 'change' ? 'go' : i.c)}</div><div class="why">${info}${raw}${esc(i.why)}</div></div>`;
 }
 function stateView(d, kind) {
   const own = d.items.filter(i => !i.globalOnly), glob = d.items.filter(i => i.globalOnly);
@@ -95,7 +97,28 @@ function stateView(d, kind) {
     + grp(t('drv.change'), ch) + grp(t('drv.unknown'), un) + grp(t('drv.info'), na) + grp(t('drv.globalOnly'), glob)
     + (ok.length ? `<details class="okgrp"${UI.okOpen ? ' open' : ''}><summary class="group-t">${I.check}${esc(t('drv.ok', { n: ok.length }))}</summary><div class="rows">${ok.map(stateRow).join('')}</div></details>` : '');
 }
-const changeCount = g => (g.rec.driver && g.rec.driver.state ? g.rec.driver.state.change : 0);
+// Oyunun kendi ayar dosyasıyla karşılaştırılmış oyun içi öneriler (core/gamecfg.js, engine/ingame.js). Düzen stateView ile aynı;
+// karşılaştırılmayan öneriler (ön ayar, doku…) "Diğer öneriler"de, ipuçları en altta.
+function ingameView(g) {
+  const r = g.rec, st = r.ingameState;
+  if (!st) return `${g.catalog ? '' : `<p class="muted-note">${esc(t('ig.noFile'))}</p>`}<div class="group-t">${esc(t('games.ingameGroup'))}</div>${rows(r.ingame)}`;
+  const items = r.ingame.filter(i => !i.tip), tips = r.ingame.filter(i => i.tip);
+  const by = s => items.filter(i => i.state === s);
+  const ch = by('change'), un = by('unknown'), na = by('na'), ok = by('ok');
+  const lines = [];
+  if (g.running) lines.push(t('ig.running'));
+  if (un.length) lines.push(t('ig.sumUnknown', { n: un.length }));
+  lines.push(t('ig.read', { file: st.file.split(/[\\/]/).pop(), t: timeAgo(st.at) }));
+  lines.push(t('ig.live'));
+  const grp = (title, list) => (list.length ? `<div class="group-t">${esc(title)}</div><div class="rows">${list.map(stateRow).join('')}</div>` : '');
+  return `<div class="drvsum ${ch.length ? 'has' : 'ok'}"><div class="ic">${ch.length ? I.alert : I.check}</div><div><b>${esc(ch.length ? t('ig.sumChange', { n: ch.length }) : t('ig.sumOk'))}</b>${lines.map(l => `<p>${esc(l)}</p>`).join('')}</div></div>`
+    + grp(t('drv.change'), ch) + grp(t('ig.unknown'), un) + grp(t('ig.other'), na)
+    + (ok.length ? `<details class="okgrp"${UI.okOpen ? ' open' : ''}><summary class="group-t">${I.check}${esc(t('drv.ok', { n: ok.length }))}</summary><div class="rows">${ok.map(stateRow).join('')}</div></details>` : '')
+    + (tips.length ? rows(tips) : '');
+}
+const drvCount = g => (g.rec.driver && g.rec.driver.state ? g.rec.driver.state.change : 0);
+const igCount = g => (g.rec.ingameState ? g.rec.ingameState.change : 0);
+const changeCount = g => drvCount(g) + igCount(g);
 
 // ---------- iskelet ----------
 function renderRail() {
@@ -264,9 +287,10 @@ function renderList() {
   if (q && UI.filter === 'hepsi') list = list.concat((S.catalog || []).filter(match));
   const item = g => { const n = changeCount(g); return `<button class="gitem" data-game="${esc(g.id)}" aria-current="${g.id === UI.gameId}">${thumb(g)}<div style="min-width:0"><div class="nm">${esc(g.name)}</div>
     <div class="mt"><i class="lv lv${g.rec.L}"></i><span>${esc(t('levels')[g.rec.L])}</span><span>·</span><span>${esc(g.sourceName)}</span>${g.accessible === false && !g.catalog ? `<span>· ${esc(t('games.unreachable'))}</span>` : ''}</div></div>${n ? `<span class="badge" title="${esc(t('drv.badge', { n }))}">${n}</span>` : '<span></span>'}</button>`; };
-  const recent = list.filter(g => g.lastPlayed), rest = list.filter(g => !g.lastPlayed);
+  const running = list.filter(g => g.running), recent = list.filter(g => g.lastPlayed && !g.running), rest = list.filter(g => !g.lastPlayed && !g.running);
   box.innerHTML = list.length
-    ? (recent.length ? `<div class="grp">${esc(t('games.recent'))}</div>${recent.map(item).join('')}` : '') + (rest.length ? `<div class="grp">${esc(UI.filter === 'katalog' ? catalogName : recent.length ? t('games.others') : t('games.games'))} · ${rest.length}</div>${rest.map(item).join('')}` : '')
+    ? (running.length ? `<div class="grp run">${esc(t('games.running'))}</div>${running.map(item).join('')}` : '')
+    + (recent.length ? `<div class="grp">${esc(t('games.recent'))}</div>${recent.map(item).join('')}` : '') + (rest.length ? `<div class="grp">${esc(UI.filter === 'katalog' ? catalogName : recent.length ? t('games.others') : t('games.games'))} · ${rest.length}</div>${rest.map(item).join('')}` : '')
     : `<div class="empty">${esc(t('games.noMatch'))}</div>`;
 }
 
@@ -275,7 +299,7 @@ function copyText(g) {
   const lines = [`${g.name} · ${S.ctx.resLabel} ${S.ctx.hz} Hz`];
   if (r.driver) { lines.push(`[${r.driver.app}]`); for (const i of r.driver.items) lines.push(`${i.state === 'change' ? '!' : '-'} ${i.k}${i.alt && i.alt !== i.k ? ` (${i.alt})` : ''}: ${i.v}${i.state === 'change' ? ` (${t('drv.now')}: ${i.cur})` : ''}`); }
   lines.push(`[${t('games.tabIngame')}]`);
-  for (const i of r.ingame) lines.push(i.tip ? `- ${i.why}` : `- ${i.k}: ${i.v}`);
+  for (const i of r.ingame) lines.push(i.tip ? `- ${i.why}` : `${i.state === 'change' ? '!' : '-'} ${i.k}: ${i.v}${i.state === 'change' ? ` (${t('drv.now')}: ${i.cur})` : ''}`);
   return lines.join('\n');
 }
 
@@ -300,8 +324,8 @@ function renderDetail() {
   if (!g) { box.innerHTML = `<div class="empty">${esc(t('games.none'))}</div>`; return; }
   const r = g.rec, u = imgUrl(g);
   const tabs = [];
-  if (r.driver) tabs.push(['driver', SHORT_APP[r.driver.app] || r.driver.app, I.app, changeCount(g)]);
-  tabs.push(['ingame', t('games.tabIngame'), I.ingame]);
+  if (r.driver) tabs.push(['driver', SHORT_APP[r.driver.app] || r.driver.app, I.app, drvCount(g)]);
+  tabs.push(['ingame', t('games.tabIngame'), I.ingame, igCount(g)]);
   if (g.probe) tabs.push(['files', t('games.tabFiles'), I.file]);
   if (!tabs.some(t => t[0] === UI.tab)) UI.tab = tabs[0][0];
   let body = '';
@@ -310,7 +334,7 @@ function renderDetail() {
     body = `<div class="apppath">${I.app}<span>${esc(r.driver.app)}</span><code>${esc(r.driver.path)}</code></div>` + (r.driver.state ? stateView(r.driver, 'game') : noRead +
       r.driver.groups.map(([title, keys]) => { const it = r.driver.items.filter(i => keys.includes(i.id)); return it.length ? `<div class="group-t">${esc(title)}</div>${rows(it)}` : ''; }).join(''));
   } else if (UI.tab === 'ingame') {
-    body = `<div class="apppath">${I.ingame}<span>${esc(t('games.ingamePath'))}</span></div><div class="group-t">${esc(t('games.ingameGroup'))}</div>${rows(r.ingame)}`;
+    body = `<div class="apppath">${I.ingame}<span>${esc(t('games.ingamePath'))}</span></div>${ingameView(g)}`;
   } else if (UI.tab === 'files' && g.probe) {
     const p = g.probe;
     body = `<div class="apppath">${I.file}<span>${esc(t('games.filesHead', { n: p.scanned, cut: p.truncated ? t('games.filesCut') : '' }))}</span></div>
@@ -319,7 +343,7 @@ function renderDetail() {
   }
   box.innerHTML = `
     <div class="ghero">${u ? `<div class="bgimg" style="background-image:url('${esc(u)}')"></div>` : ''}
-      <div class="src">${esc(g.catalog ? t('games.catalogSrc') : g.sourceName)}${g.alsoIn && g.alsoIn.length ? esc(t('games.alsoIn', { list: g.alsoIn.join(', ') })) : ''}${g.accessible === false && !g.catalog ? ` · <span class="chip w">${esc(t('games.noAccess'))}</span>` : ''}</div>
+      <div class="src">${g.running ? `<span class="chip run">${I.bolt}${esc(t('games.running'))}</span> ` : ''}${esc(g.catalog ? t('games.catalogSrc') : g.sourceName)}${g.alsoIn && g.alsoIn.length ? esc(t('games.alsoIn', { list: g.alsoIn.join(', ') })) : ''}${g.accessible === false && !g.catalog ? ` · <span class="chip w">${esc(t('games.noAccess'))}</span>` : ''}</div>
       <h2>${esc(g.name)}</h2>
       <div class="tags">${r.tags.map(t => `<span class="chip ${esc(t.k)}">${esc(t.t)}</span>`).join('')}</div>
       <div class="perf"><div class="meter">${[0, 1, 2, 3].map(i => `<i class="${i <= r.L ? 'f' + r.L : ''}"></i>`).join('')}</div><span>${esc(t('games.perf', { res: S.ctx.resLabel, hz: S.ctx.hz }))}<b>${esc(r.perf)}</b></span></div>

@@ -395,6 +395,13 @@ module.exports = {
       off: "Monitör HDR destekliyor ama Windows'ta kapalı; oyunda HDR seçeneği görünmeyebilir.",
     },
     blur: 'Hızlı dönüşlerde hedefi görmeyi zorlaştırır.',
+    capDriver: "Adrenalin'deki Kare Hızı Hedef Kontrolü ({n} FPS) zaten sınırlıyor; oyundaki sınır bundan yüksek ya da kapalı olabilir. ",
+    // Oyunun ayar dosyasından okunan değerlerin adları
+    cur: {
+      display: { fullscreen: 'Tam ekran', borderless: 'Kenarlıksız pencere', windowed: 'Pencere' },
+      kind: { fsr: 'FSR', dlss: 'DLSS', xess: 'XeSS', tsr: 'TSR' },
+      mode: { q: 'Kalite', uq: 'Ultra Kalite', b: 'Dengeli', p: 'Performans', up: 'Ultra Performans', naa: 'Native AA' },
+    },
   },
 
   // Bir kez yapılacak ayarlar (sürücü uygulamasının genel ayarları)
@@ -605,6 +612,7 @@ module.exports = {
       tabIngame: 'Oyun içi', tabFiles: 'Algılanan',
       ingamePath: 'Oyunun kendi grafik menüsü',
       ingameGroup: 'Önerilen oyun içi ayarlar',
+      running: 'Şu an açık',
       filesHead: 'Oyun klasöründe bulunan kütüphaneler ({n} öğe tarandı{cut})',
       filesCut: ', sınır nedeniyle yarıda kesildi',
       dlssVer: 'DLSS dosya sürümü', xessVer: 'XeSS dosya sürümü', fsrVer: 'FSR (FidelityFX) dosya sürümü',
@@ -617,6 +625,20 @@ module.exports = {
       edit: 'Profili düzelt', editTitle: 'Tür, yük ve FSR bilgisini düzelt',
       openDir: 'Oyun klasörünü aç', hide: 'Bu oyunu listeden gizle',
       disclaimer: 'Öneriler kural tabanlıdır: oyunun türü, GPU yükü, desteklediği teknolojiler, ekran kartın ve monitörün birlikte değerlendirilir. "Tahmini durum" ölçüm değildir; gerçek FPS\'i sürücü uygulamasının performans katmanıyla kontrol et.',
+    },
+    // Oyunun kendi ayar dosyasındaki değerle karşılaştırma (Oyunlar > Oyun içi)
+    ig: {
+      sumChange: 'Oyunda {n} ayarı değiştir',
+      sumOk: 'Oyun içi ayarların önerilere uygun',
+      sumUnknown: '{n} ayar dosyadan okunamadı; aşağıda oyunda kontrol etmen gerekenler var.',
+      read: 'Ayarlar oyunun kendi dosyasından ({file}) okundu; dosya {t} kaydedilmiş.',
+      live: 'Oyunda ayarları kaydedince burası kendiliğinden yenilenir. Çoğu oyun ayarları menüden çıkınca ya da oyun kapanınca kaydeder.',
+      running: 'Oyun şu an açık.',
+      unknown: 'Dosyadan okunamadı · oyunda kontrol et',
+      raw: 'Dosyada {raw} yazıyor; bu değerin anlamı doğrulanmadı.',
+      other: 'Diğer öneriler',
+      noFile: 'Bu oyunun ayar dosyası tanınmıyor; öneriler şu anki ayarlarla karşılaştırılmadan gösteriliyor.',
+      badge: 'Oyunda {n} değişiklik',
     },
     // Sürücü uygulamasındaki şu anki değerle karşılaştırma (Oyunlar ve Genel bölümleri)
     drv: {

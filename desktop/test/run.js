@@ -612,5 +612,109 @@ t('Değişiklik metinleri iki dilde; eski kayıtlar olduğu gibi kalır', () => 
   assert.strictEqual(changeText({ type: 'info', text: 'İlk analiz yapıldı.' }, translator('en')), 'First analysis done.');
 });
 
+console.log('Oyun ayar dosyaları');
+const gamecfg = require('../src/core/gamecfg');
+// Sahte Witcher 3 ayar dosyası (gerçek dosyanın biçimi; değerler denemeye göre seçildi).
+const W3 = ['[Viewport]', 'VSync=true', 'Resolution="2560x1440"', 'FullScreenMode=2', 'AMDAntiLag=0', '[PostProcess]', 'AAMode=5', 'FSR2Quality=2', 'FSRFramegen=1', '[Visuals]', 'HdrEnabled=true', '[Engine]', 'LimitFPS=60'].join('\r\n');
+const W3G = { id: 'x', name: 'The Witcher 3: Wild Hunt', source: 'steam', appid: '292030', installDir: 'C:\\Games\\The Witcher 3' };
+t('Witcher 3: anlamı kesin değerler çözülür, sayısal kodlar dosyadaki hâliyle kalır', () => {
+  const r = gamecfg.parseWitcher3(W3);
+  assert.deepStrictEqual(r.v, { res: { w: 2560, h: 1440 }, vsync: true, latency: false, fg: true, hdr: true, cap: 60 });
+  assert.deepStrictEqual(r.raw, { display: 'FullScreenMode=2', up: 'AAMode=5 · FSR2Quality=2' });
+});
+t('RDR2: system.xml', () => {
+  const r = gamecfg.parseRdr2('<x>\n<screenWidth value="3440" />\n<screenHeight value="1440" />\n<windowed value="2" />\n<vSync value="0" />\n<hdr value="false" />\n<fsr2Index value="1" />\n<dlssIndex value="0" />\n</x>');
+  assert.deepStrictEqual(r.v, { res: { w: 3440, h: 1440 }, vsync: false, hdr: false });
+  assert.deepStrictEqual(r.raw, { display: 'windowed=2', up: 'fsr2Index=1 · dlssIndex=0' });
+});
+t('Unreal Engine: GameUserSettings.ini; ölçekleyici yalnızca adı kendini anlatıyorsa çözülür', () => {
+  const a = gamecfg.parseUnreal('[/Script/Game.Settings]\nUpscaleMode=AMD_FSR2_Quality\nUpscaleSoftness=0.200000\nFrameGeneration=(Mode=Off,NumFramesInterpolated=0,LocStr="Off")\nResolutionSizeX=3440\nResolutionSizeY=1440\nFullscreenMode=1\nFrameRateLimit=180.000000\nbUseHDRDisplayOutput=True\n');
+  assert.deepStrictEqual(a.v, { res: { w: 3440, h: 1440 }, display: 'borderless', cap: 180, hdr: true, up: { kind: 'fsr', gen: '2', mode: 'q', src: 'UpscaleMode=AMD_FSR2_Quality' }, fg: false });
+  const b = gamecfg.parseUnreal('[/Script/G.S]\nUpscalingMethod=1\nUpscalingQualityDLSS=2\nUpscalingQualityFSR=2\nFrameGenerationFSREnabled=False\nFrameGenerationDLSS=0\nbUseVSync=False\nFullscreenMode=0\nFrameRateLimit=0.000000\n[/Script/Engine.GameUserSettings]\n');
+  assert.deepStrictEqual(b.v, { display: 'fullscreen', vsync: false, cap: 0, fg: false });
+  assert.deepStrictEqual(b.raw, { up: 'UpscalingMethod=1 · UpscalingQualityFSR=2' });
+  assert.deepStrictEqual(gamecfg.upscalerText('XeSS_UltraPerformance'), { kind: 'xess', gen: undefined, mode: 'up' });
+  assert.deepStrictEqual(gamecfg.upscalerText('Off'), { kind: 'off' });
+  assert.strictEqual(gamecfg.upscalerText('3'), undefined);
+  assert.deepStrictEqual(gamecfg.unrealNames({ exes: ['G1R-Win64-Shipping.exe', 'G1R\\Binaries\\Win64\\G1R-Win64-Shipping.exe'] }), ['G1R']);
+  assert.deepStrictEqual(gamecfg.unrealNames({ exes: ['HogwartsLegacy.exe', 'Phoenix\\Binaries\\Win64\\HogwartsLegacy.exe', 'Engine\\Binaries\\Win64\\CrashHelper.exe'] }), ['HogwartsLegacy', 'Phoenix', 'CrashHelper']);
+});
+t('Ayar dosyası oyunun kendi adlarından bulunur; değişmeyen dosya yeniden çözülmez', () => {
+  const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rigtune-cfg-'));
+  try {
+    const e = { documents: path.join(root, 'Docs'), localAppData: path.join(root, 'Local') };
+    fs.mkdirSync(path.join(e.documents, 'The Witcher 3'), { recursive: true });
+    fs.writeFileSync(path.join(e.documents, 'The Witcher 3', 'dx12user.settings'), W3);
+    const w = gamecfg.readGameConfig(W3G, null, e);
+    assert.deepStrictEqual([w.kind, path.basename(w.file), w.v.cap], ['witcher3', 'dx12user.settings', 60]);
+    assert.strictEqual(gamecfg.readGameConfig(W3G, null, e, w), w, 'dosya değişmediyse önceki sonuç');
+    const ue = { id: 'u', name: 'G', source: 'steam', installDir: 'C:\\Games\\G' };
+    const probe = { engine: 'Unreal Engine 5.4', exes: ['G1R\\Binaries\\Win64\\G1R-Win64-Shipping.exe'] };
+    assert.strictEqual(gamecfg.readGameConfig(ue, probe, e), null, 'dosya yoksa null');
+    fs.mkdirSync(path.join(e.localAppData, 'G1R', 'Saved', 'Config', 'Windows'), { recursive: true });
+    fs.writeFileSync(path.join(e.localAppData, 'G1R', 'Saved', 'Config', 'Windows', 'GameUserSettings.ini'), '\uFEFF[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1920\r\nResolutionSizeY=1080\r\n');
+    assert.deepStrictEqual(gamecfg.readGameConfig(ue, probe, e).v, { res: { w: 1920, h: 1080 } });
+    assert.strictEqual(gamecfg.readGameConfig({ id: 'n', name: 'N', installDir: 'C:\\N' }, { engine: 'Unity 2022.3', exes: ['N.exe'] }, e), null, 'tanınmayan oyun');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+t('Oyun içi öneriler oyunun ayar dosyasıyla karşılaştırılır', () => {
+  const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418)));
+  const ctx = lang => E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang });
+  const rec = (cfg, lang = 'tr') => { const p = E.buildProfile(W3G, gamedb.match(W3G), null, null, null, lang); p.cfg = cfg; return E.recommend(p, ctx(lang)); };
+  const r = rec(gamecfg.parseWitcher3(W3));
+  const it = k => item(r.ingame, k);
+  assert.deepStrictEqual([it('Çözünürlük').state, it('Çözünürlük').cur], ['change', '2560×1440']);
+  assert.deepStrictEqual([it('VSync (oyun içi)').state, it('VSync (oyun içi)').cur], ['change', 'Açık'], 'FreeSync varken oyunda VSync kapalı');
+  assert.strictEqual(it('Düşük gecikme').state, 'change');
+  assert.strictEqual(it('Kare üretimi (oyun içi)').state, 'ok');
+  assert.strictEqual(it('HDR').state, 'ok', "Windows'ta HDR açık, oyunda da açık");
+  assert.deepStrictEqual([it('FPS sınırı (oyun içi)').state, it('FPS sınırı (oyun içi)').cur], ['change', '60 FPS']);
+  assert.deepStrictEqual([it('Ekran modu').state, it('Ekran modu').raw], ['unknown', 'FullScreenMode=2']);
+  assert.deepStrictEqual([it('Ölçekleyici').state, it('Ölçekleyici').raw], ['unknown', 'AAMode=5 · FSR2Quality=2']);
+  assert.strictEqual(it('Grafik ön ayarı').state, 'na', 'ön ayar karşılaştırılmaz');
+  assert.deepStrictEqual([r.ingameState.kind, r.ingameState.change, r.ingameState.unknown], ['witcher3', 4, 2]);
+  // Oyunda sınır yok ama Adrenalin'deki Kare Hızı Hedef Kontrolü (140) öneriye uygun: değiştir denmez.
+  const free = item(rec(gamecfg.parseWitcher3(W3.replace('LimitFPS=60', 'LimitFPS=0'))).ingame, 'FPS sınırı (oyun içi)');
+  assert.deepStrictEqual([free.state, free.cur], ['ok', 'Sınırsız']);
+  assert.ok(free.why.startsWith("Adrenalin'deki Kare Hızı Hedef Kontrolü (140 FPS)"));
+  // Windows'ta HDR kapalıyken oyundaki HDR karşılaştırılmaz.
+  const sdr = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, Object.assign(mon(3440, 1440, 144, true), { hdr: { supported: true, enabled: false } })));
+  const p2 = E.buildProfile(W3G, gamedb.match(W3G), null, null, null, 'tr'); p2.cfg = gamecfg.parseWitcher3(W3);
+  assert.strictEqual(item(E.recommend(p2, E.context(sdr, { gpu: sdr.gpus[0], display: sdr.displays[0] }, { lang: 'tr' })).ingame, 'HDR').state, 'na');
+  // İngilizce: aynı kararlar, Türkçe metin yok.
+  const en = rec(gamecfg.parseWitcher3(W3), 'en');
+  assert.deepStrictEqual(en.ingame.map(i => i.state), r.ingame.map(i => i.state));
+  assert.deepStrictEqual([item(en.ingame, 'VSync (in game)').cur, item(en.ingame, 'Display mode').state], ['On', 'unknown']);
+  assert.ok(!/[çğıöşüÇĞİÖŞÜ]/.test(JSON.stringify(en.ingame)), 'İngilizce çıktıda Türkçe metin');
+  // Ayar dosyası yoksa karşılaştırma yapılmaz.
+  assert.strictEqual(rec(null).ingameState, null);
+  assert.ok(!rec(null).ingame.some(i => 'state' in i));
+});
+t('Unreal oyununda ölçekleyici, ekran modu ve FPS sınırı karşılaştırılır', () => {
+  const sys = withAmd(fakeSys('AMD Radeon RX 9070 XT', 16, mon(3440, 1440, 144, true, 418)));
+  const c = E.context(sys, { gpu: sys.gpus[0], display: sys.displays[0] }, { lang: 'tr' });
+  const g = { id: 'h', name: 'Hogwarts Legacy', source: 'steam', installDir: 'C:\\Games\\Hogwarts Legacy' };
+  const p = E.buildProfile(g, gamedb.match(g), { engine: 'Unreal Engine 4.27', antiCheat: [], fsr: 'fsr2' }, null, null, 'tr');
+  p.cfg = gamecfg.parseUnreal('[S]\nUpscaleMode=AMD_FSR2_Balanced\nResolutionSizeX=3440\nResolutionSizeY=1440\nFullscreenMode=2\nFrameRateLimit=180.000000\nbUseVSync=False\n');
+  const r = E.recommend(p, c);
+  assert.ok(r.need, 'bu oyunda ölçekleyici öneriliyor');
+  assert.deepStrictEqual([item(r.ingame, 'Ölçekleyici').state, item(r.ingame, 'Ölçekleyici').cur], ['change', 'FSR 2 · Dengeli'], 'öneri Kalite');
+  assert.deepStrictEqual([item(r.ingame, 'Ekran modu').state, item(r.ingame, 'Ekran modu').cur], ['change', 'Pencere']);
+  // AFMF önerildiği için yarım sınır (70) oyun içinden konur; Adrenalin'deki Kare Hızı Hedef Kontrolü bunun yerini tutmaz.
+  assert.deepStrictEqual([item(r.ingame, 'FPS sınırı (oyun içi)').state, item(r.ingame, 'FPS sınırı (oyun içi)').v], ['change', '70 FPS']);
+  p.cfg = gamecfg.parseUnreal('[S]\nFrameRateLimit=70.000000\n');
+  assert.strictEqual(item(E.recommend(p, c).ingame, 'FPS sınırı (oyun içi)').state, 'ok');
+  assert.strictEqual(item(r.ingame, 'VSync (oyun içi)').state, 'ok');
+  // Dosyadaki FSR sürümü önerilenden farklı: karar verilmez, dosyadaki değer gösterilir.
+  const p3 = E.buildProfile(g, gamedb.match(g), { engine: 'Unreal Engine 4.27', antiCheat: [], fsr: 'fsr31' }, null, null, 'tr');
+  p3.cfg = gamecfg.parseUnreal('[S]\nUpscaleMode=AMD_FSR2_Quality\n');
+  const up3 = item(E.recommend(p3, c).ingame, 'Ölçekleyici');
+  assert.deepStrictEqual([up3.state, up3.raw], ['unknown', 'UpscaleMode=AMD_FSR2_Quality']);
+  assert.strictEqual(p3.cfg.raw.up, undefined, 'önbellekteki sonuç değişmez');
+});
+t('Süreç listesi: tasklist CSV', () => {
+  const { parseTasklist } = require('../src/core/procs');
+  assert.deepStrictEqual(parseTasklist('"System Idle Process","0","Services","0","8 K"\r\n"witcher3.exe","29688","Console","1","2.342.852 K"\r\n'), [{ name: 'system idle process', pid: 0 }, { name: 'witcher3.exe', pid: 29688 }]);
+});
 console.log(`\n${pass} geçti, ${fail} kaldı`);
 process.exit(fail ? 1 : 0);
