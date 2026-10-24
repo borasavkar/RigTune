@@ -243,6 +243,7 @@ h2.sec{font:600 12px/1 var(--font);letter-spacing:.09em;text-transform:uppercase
 .row .k{font-weight:600}
 .row .k .alt{margin-left:10px;font:500 11.5px var(--font);color:var(--faint);letter-spacing:.01em}
 .row .why{grid-column:1/-1;font-size:13px;color:var(--muted);max-width:90ch}
+.row .why .desc{display:block;color:var(--fg);opacity:.85;margin-bottom:3px}
 .row.tip{grid-template-columns:22px minmax(0,1fr)}
 .row.tip svg{width:16px;height:16px;color:var(--acc-hi);margin-top:2px}
 

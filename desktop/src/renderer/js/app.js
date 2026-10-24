@@ -64,10 +64,12 @@ function toast(title, text, icon = I.info) {
   setTimeout(() => el.remove(), 6500);
 }
 const pill = (v, c) => `<span class="pill ${esc(c)}">${esc(v)}</span>`;
+// Ayarın ne işe yaradığı (Genel sayfasındaki sürücü ayarları); altında öneri nedeni gelir.
+const descOf = i => (i.desc ? `<span class="desc">${esc(i.desc)}</span>` : '');
 function rows(items) {
   return `<div class="rows">${items.map(i => i.tip
     ? `<div class="row tip">${I.spark}<div>${esc(i.why)}</div></div>`
-    : `<div class="row"><div class="k">${esc(i.k)}${i.alt && i.alt !== i.k ? `<span class="alt">${esc(i.alt)}</span>` : ''}</div>${pill(i.v, i.c)}<div class="why">${esc(i.why)}</div></div>`).join('')}</div>`;
+    : `<div class="row"><div class="k">${esc(i.k)}${i.alt && i.alt !== i.k ? `<span class="alt">${esc(i.alt)}</span>` : ''}</div>${pill(i.v, i.c)}<div class="why">${descOf(i)}${esc(i.why)}</div></div>`).join('')}</div>`;
 }
 
 // Sürücü uygulamasındaki şu anki değerle karşılaştırılmış satırlar (state: change | unknown | na | ok).
@@ -81,7 +83,7 @@ function stateRow(i) {
   const info = (i.state === 'na' || i.state === 'ok') && i.cur != null && i.cur !== i.v ? `<b>${esc(t('drv.now'))}:</b> ${esc(i.cur)}. ` : '';
   // Oyun ayar dosyasında bulunan ama anlamı doğrulanmamış değer (ör. AAMode=5) olduğu gibi gösterilir.
   const raw = i.raw ? `${esc(t('ig.raw', { raw: i.raw }))} ` : '';
-  return `<div class="row st-${esc(i.state)}"><div class="k">${name}</div><div class="vals">${now}${pill(i.v, i.state === 'change' ? 'go' : i.c)}</div><div class="why">${info}${raw}${esc(i.why)}</div></div>`;
+  return `<div class="row st-${esc(i.state)}"><div class="k">${name}</div><div class="vals">${now}${pill(i.v, i.state === 'change' ? 'go' : i.c)}</div><div class="why">${descOf(i)}${info}${raw}${esc(i.why)}</div></div>`;
 }
 function stateView(d, kind) {
   const own = d.items.filter(i => !i.globalOnly), glob = d.items.filter(i => i.globalOnly);

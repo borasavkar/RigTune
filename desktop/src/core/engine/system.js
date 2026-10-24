@@ -70,16 +70,21 @@ function vendorGlobal(sys, c) {
     const capN = d.vrr ? c.hz - 3 : c.hz;
     add('frtc', K('frtc'), t('amd.cap.onV', { n: capN }), 'set', d.vrr ? t('global.amd.frtc', { n: capN }) : t('global.amd.frtcNoVrr', { n: capN }));
     mark(has('frtc') ? (G.frtc.on ? t('amd.cap.onV', { n: G.frtc.fps }) : A_OFF) : null, has('frtc') && capOk(G.frtc, capN));
+    // Gelişmiş bölümü, Adrenalin'deki sırayla: örtüşme önleme, filtreleme, yüzey biçimi, mozaik döşeme, OpenGL, 10 bit.
+    add('aa', K('aa'), t('global.amd.aaV'), 'set', t('global.amd.aa'));
+    mark(has('aa') ? (G.aa.mode === 1 ? t('global.amd.aaV') : OTHER) : null, has('aa') && G.aa.mode === 1);
+    add('aaMethod', K('aaMethod'), t('global.amd.aaMethodV'), 'off', t('global.amd.aaMethod'));
+    na();
+    add('mlaa', K('mlaa'), A_OFF, 'off', t('global.amd.mlaa'));
+    mark(has('aa') && G.aa.mlaa != null ? (G.aa.mlaa ? A_ON : A_OFF) : null, has('aa') && G.aa.mlaa === false);
+    add('aniso', K('aniso'), A_OFF, 'off', t('global.amd.aniso'));
+    mark(has('aniso') ? (G.aniso > 0 ? `${A_ON} · ${G.aniso}x` : A_OFF) : null, has('aniso') && G.aniso === 0);
     add('texFilter', K('texFilter'), t('global.amd.texFilterV'), 'set', t('global.amd.texFilter'));
     mark(has('texFilter') ? t('global.amd.texOpts')[G.texFilter] || OTHER : null, has('texFilter') && G.texFilter === 1);
     add('surfaceFmt', K('surfaceFmt'), A_ON, 'on', t('global.amd.surfaceFmt'));
     mark(has('surfaceFmt') ? (G.surfaceFmt ? A_ON : A_OFF) : null, has('surfaceFmt') && G.surfaceFmt === true);
     add('tess', K('tess'), t('global.amd.tessV'), 'set', t('global.amd.tess'));
     mark(has('tess') ? (G.tess === 0 ? t('global.amd.tessV') : OTHER) : null, has('tess') && G.tess === 0);
-    add('aa', K('aa'), t('global.amd.aaV'), 'set', t('global.amd.aa'));
-    if (has('aa')) mark((G.aa.mode === 1 ? t('global.amd.aaV') : OTHER) + (G.aa.mlaa ? t('global.amd.mlaaOn') : ''), G.aa.mode === 1 && !G.aa.mlaa); else mark(null);
-    add('aniso', K('aniso'), A_OFF, 'off', t('global.amd.aniso'));
-    mark(has('aniso') ? (G.aniso > 0 ? `${A_ON} · ${G.aniso}x` : A_OFF) : null, has('aniso') && G.aniso === 0);
     add('tripleBuf', K('tripleBuf'), A_OFF, 'off', t('global.amd.tripleBuf'));
     mark(has('tripleBuf') ? (G.tripleBuf ? A_ON : A_OFF) : null, has('tripleBuf') && G.tripleBuf === false);
     add('tenBit', K('tenBit'), A_OFF, 'off', t('global.amd.tenBit'));
@@ -96,6 +101,9 @@ function vendorGlobal(sys, c) {
     mark(ver || null, !old);
     add('shaderCache', K('shaderCache'), t('global.amd.shaderV'), 'set', t('global.amd.shader'));
     na();
+    // Her satıra ayarın ne işe yaradığı (desc) eklenir; why öneri nedenidir.
+    const D = t('global.amd.desc');
+    for (const i of S) if (D[i.id]) i.desc = D[i.id];
     const n = s => S.filter(i => i.state === s).length;
     return { app: 'AMD Software: Adrenalin Edition', path: t('global.amd.path'), items: S, state: G ? { scope: 'global', change: n('change'), ok: n('ok'), unknown: n('unknown') } : null };
   }
