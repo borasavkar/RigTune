@@ -99,7 +99,7 @@ function scanXbox(hints) {
     // XboxGames klasöründeki kopya okunabilir olduğu için WindowsApps yoluna tercih edilir.
     if (prev && !extra.preferred) return;
     const logo = c.logo ? path.join(dir, c.logo) : null;
-    byId.set(key, { id: `xbox:${c.identity || path.basename(dir)}`, source: 'xbox', name: c.name || (extra.fallbackName || c.identity), installDir: dir, accessible: isDir(dir), version: c.version, image: logo && exists(logo) ? logo : null });
+    byId.set(key, { id: `xbox:${c.identity || path.basename(dir)}`, source: 'xbox', name: c.name || (extra.fallbackName || c.identity), installDir: dir, accessible: isDir(dir), version: c.version, pkg: c.identity || null, image: logo && exists(logo) ? logo : null });
   };
   for (const p of (hints && hints.xbox) || []) add(p.cfg, p.loc, { fallbackName: p.name });
   for (const d of (hints && hints.drives) || []) {

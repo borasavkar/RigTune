@@ -13,8 +13,8 @@ const { profileFor, gmdbFor } = require('../detect/amd-settings');
 // (profilinde kaydı yoksa) AFMF, Adrenalin'in oyun listesinden (gmdb.blb) okunur.
 function currentOf(c, g) {
   if (!c.amd) return null;
-  const prof = profileFor(c.amd, { dir: g.dir, appid: g.appid });
-  const gm = gmdbFor(c.amd, { dir: g.dir, appid: g.appid, name: g.dbName || g.n });
+  const prof = profileFor(c.amd, { dir: g.dir, appid: g.appid, pkg: g.pkg, version: g.version });
+  const gm = gmdbFor(c.amd, { dir: g.dir, appid: g.appid, pkg: g.pkg, version: g.version, name: g.dbName || g.n });
   const s = prof ? { ...prof.s } : c.amd.global || {};
   if (prof && gm) { s.rsr = gm.rsr; if (s.afmf === undefined) s.afmf = gm.afmf; }
   return { scope: prof ? 'game' : 'global', s, global: c.amd.global || {}, gm };

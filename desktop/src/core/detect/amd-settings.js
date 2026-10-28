@@ -190,13 +190,29 @@ function parseGmdb(buf) {
 }
 
 // Oyunun gmdb kaydı: Steam numarası, exe klasörü ya da ad.
+// Xbox / Microsoft Store oyunları: Adrenalin oyunu çalıştığı WindowsApps klasöründen tanır
+// (C:\Program Files\WindowsApps\<paket>_<sürüm>_x64__<yayıncı>\…), RigTune ise XboxGames\…\Content kopyasından bulur; yollar
+// tutmadığı için eşleşme paket adıyla (MicrosoftGame.config Identity) yapılır. Oyun güncellenince Adrenalin yeni sürüm klasörü
+// için yeni kayıt açar, eskisi kalır (28 Ekim 2026: AoE II'nin iki profili); sürümü tutan, yoksa en yeni sürüm seçilir.
+const pkgOf = p => { const m = /\\windowsapps\\([^\\_]+)_([\d.]+)_/i.exec(String(p || '').replace(/\//g, '\\')); return m ? { name: m[1].toLowerCase(), ver: m[2] } : null; };
+const verCmp = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
+function byPackage(list, pathOf, game) {
+  if (!game.pkg) return null;
+  const want = String(game.pkg).toLowerCase();
+  const hits = list.map(x => ({ x, k: pkgOf(pathOf(x)) })).filter(h => h.k && h.k.name === want);
+  if (!hits.length) return null;
+  const same = game.version && hits.find(h => h.k.ver === String(game.version));
+  return (same || hits.sort((a, b) => verCmp(b.k.ver, a.k.ver))[0]).x;
+}
+
 function gmdbFor(amd, game) {
   const list = amd && amd.gm;
   if (!list || !game) return null;
-  const n = p => String(p || '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+  const n = p => String(p || '').replace(/\//g, '\\').replace(/\\+/g, '\\').replace(/\\$/, '').toLowerCase();
   const dir = n(game.dir), name = game.name ? normLoose(game.name) : '';
   return (game.appid && list.find(x => x.appid === String(game.appid)))
     || (dir && list.find(x => x.exePath && n(x.exePath).startsWith(dir + '\\')))
+    || byPackage(list.filter(x => x.exePath), x => x.exePath, game)
     || (name && list.find(x => x.title && normLoose(x.title) === name)) || null;
 }
 
@@ -269,11 +285,11 @@ function perfFor(amd, game) {
 // Profil yolu oyun klasörünün kendisi ya da alt klasörü olabilir (ör. "The Witcher 3\bin\x64_dx12").
 function profileFor(amd, game) {
   if (!amd || !amd.profiles || !game) return null;
-  const n = p => String(p || '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
+  const n = p => String(p || '').replace(/\//g, '\\').replace(/\\+/g, '\\').replace(/\\$/, '').toLowerCase();
   const dir = n(game.dir);
   const byDir = dir && amd.profiles.find(p => p.dir && (n(p.dir) === dir || n(p.dir).startsWith(dir + '\\')));
   if (byDir) return byDir;
-  return (game.appid && amd.profiles.find(p => p.appid && p.appid === String(game.appid))) || null;
+  return (game.appid && amd.profiles.find(p => p.appid && p.appid === String(game.appid))) || byPackage(amd.profiles.filter(p => p.dir), p => p.dir, game) || null;
 }
 
 module.exports = { readAmdSettings, parseApl, parseGex, parseRegQuery, fromProfile, fromGlobal, profileFor, parseGpa, readPerf, perfFor, parseGmdb, gmdbFor, files };

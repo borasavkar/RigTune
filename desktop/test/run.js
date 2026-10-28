@@ -738,6 +738,16 @@ t('RDR2: menüdeki bütün grafik ayarları dosyadan okunur ve önerilerle karş
   assert.ok(!/[çğıöşüÇĞİÖŞÜ]/.test(JSON.stringify(en)), 'İngilizce çıktıda Türkçe metin');
   assert.strictEqual(recFor(sys, 'Cyberpunk 2077').r.gameSettings, null);
 });
+t('Xbox oyunu: Adrenalin profili WindowsApps yolundan paket adıyla eşleşir, sürümü tutan ya da en yeni seçilir', () => {
+  const W = v => 'C:\\Program Files\\WindowsApps\\Microsoft.MSPhoenix_' + v + '_x64__8wekyb3d8bbwe\\Game';
+  const amd = { profiles: [{ dir: W('101.103.54800.0'), s: { v: 'eski' } }, { dir: W('101.103.57257.0'), s: { v: 'yeni' } }, { dir: 'C:\\Program Files\\WindowsApps\\Microsoft.Other_1.0.0.0_x64__x', s: { v: 'baska' } }],
+    gm: [{ exePath: 'C:\\Program Files\\WindowsApps\\Microsoft.Cardinal_16.3.11308.0_x64__8wekyb3d8bbwe\\\\RelicCardinal.exe', title: 'AoE IV' }] };
+  const g = { dir: 'C:\\XboxGames\\Age of Empires II- Definitive Edition\\Content', pkg: 'Microsoft.MSPhoenix' };
+  assert.strictEqual(amdS.profileFor(amd, g).s.v, 'yeni');
+  assert.strictEqual(amdS.profileFor(amd, { ...g, version: '101.103.54800.0' }).s.v, 'eski');
+  assert.strictEqual(amdS.profileFor(amd, { dir: g.dir }), null, 'paket adı yoksa eşleşmez');
+  assert.ok(amdS.gmdbFor(amd, { dir: 'G:\\XboxGames\\Age of Empires IV\\Content', pkg: 'Microsoft.Cardinal' }));
+});
 t('Süreç listesi: tasklist CSV', () => {
   const { parseTasklist } = require('../src/core/procs');
   assert.deepStrictEqual(parseTasklist('"System Idle Process","0","Services","0","8 K"\r\n"witcher3.exe","29688","Console","1","2.342.852 K"\r\n'), [{ name: 'system idle process', pid: 0 }, { name: 'witcher3.exe', pid: 29688 }]);

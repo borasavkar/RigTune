@@ -43,6 +43,8 @@ function buildProfile(game, db, probe, meta, ov, lang = 'tr') {
     dbName: db ? db.n : null,
     // Sürücü uygulamasındaki oyun profilini bulmak için (klasör ve Steam numarası)
     dir: game.installDir || null, appid: game.appid || (db && db.ids && db.ids.steam) || null, exe: game.exe || null,
+    // Xbox oyunlarında paket adı ve sürümü (Adrenalin profili WindowsApps yolundan eşleşir)
+    pkg: game.pkg || null, version: game.version || null,
     t, y: clamp(+y, 1, 4), f,
     fg: (db && db.fg) || (probe && probe.fsrFG) ? 1 : 0,
     al: db && db.al ? 1 : 0,
