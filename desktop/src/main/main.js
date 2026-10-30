@@ -15,7 +15,10 @@ const hiddenStart = process.argv.includes('--hidden');
 protocol.registerSchemesAsPrivileged([{ scheme: 'oar', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
-const APP_ID = 'tr.savkar.rigtune';
+// Geliştirme çalıştırmaları (npm start, ekran görüntüsü aracı) ayrı kimlik kullanır: aynı kimlikle çalışınca Electron Başlat
+// menüsüne node_modules\electron.exe'yi gösteren bir "Electron.lnk" yazıyordu ve görev çubuğuna sabitlenen simge "Electron"
+// oluyordu (31 Ekim 2026'da görüldü).
+const APP_ID = app.isPackaged ? 'tr.savkar.rigtune' : 'tr.savkar.rigtune.dev';
 app.setAppUserModelId(APP_ID);
 
 let win = null, tray = null, analyzer = null, quitting = false, timer = null, displayPoll = null, lastDisplaySig = '';
@@ -201,6 +204,13 @@ function fixPortableShortcut() {
   if (cur.target && path.normalize(cur.target).toLowerCase() === path.normalize(exe).toLowerCase()) return;
   try { shell.writeShortcutLink(lnk, 'update', { target: exe, cwd: path.dirname(exe), icon: exe, iconIndex: 0, description: analyzer.t('app.name') }); } catch { /* yazılamadı */ }
 }
+// Electron kısayolu açılıştan birkaç saniye sonra yeniden Temp'teki kopyaya çeviriyor (0.1.13'te görüldü); kısayol izlenir ve her
+// değişiklikte hedef yeniden taşınabilir exe'ye çevrilir. Hedef zaten doğruysa fixPortableShortcut bir şey yazmaz.
+function watchPortableShortcut() {
+  if (!(process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE)) return;
+  const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', `${app.getName()}.lnk`);
+  fs.watchFile(lnk, { interval: 3000 }, (cur, prev) => { if (cur.mtimeMs !== prev.mtimeMs) setTimeout(fixPortableShortcut, 500); });
+}
 
 function registerProtocol() {
   protocol.handle('oar', async (req) => {
@@ -302,4 +312,6 @@ app.whenReady().then(() => {
   schedule();
   watchAmd();
   fixPortableShortcut();
+  watchPortableShortcut();
+  setTimeout(fixPortableShortcut, 15000);
 });
